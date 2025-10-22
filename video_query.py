@@ -5,7 +5,7 @@ Media Database Query Tool
 Utility for querying media file database (videos and images) with convenient formatting.
 
 Usage:
-python video_query.py --export-duplicates duplicates_by_hash.txt --export-pattern 'Camera Uploads'
+python video_query.py --export-duplicates duplicates_by_hash.txt --export-pattern 'Camera Uploads' --duplicate-patterns 'Camera Uploads' 'copy' '_copy'
 
 python video_query.py --export-list high_quality_files.txt --export-min-bitrate 15 --export-min-size 50
 
@@ -425,7 +425,66 @@ def export_no_metadata_files(db_path, output_file, short_format=False):
     if remaining > 0:
         print(f"  ... and {remaining} more files")
 
-def export_duplicates_list(db_path, output_file, path_pattern=None, short_format=False):
+def determine_original_and_copies(files, duplicate_patterns=None):
+    """
+    Determines which file is the original and which are copies based on the algorithm:
+    1. Sort files lexicographically by full path
+    2. While more than one file remains as potential ORIGINAL:
+       2.1. If file contains duplicate patterns, mark as COPY
+       2.2. If all files are processed and still >1 potential ORIGINAL, 
+            keep the one with smallest lexicographic order as ORIGINAL
+    
+    Returns: (original_file, copy_files)
+    """
+    if not files:
+        return None, []
+    
+    # Sort files lexicographically by full path (index 0 is file_path)
+    sorted_files = sorted(files, key=lambda x: x[0])
+    
+    if len(sorted_files) == 1:
+        return sorted_files[0], []
+    
+    # Mark files as potential originals or copies
+    potential_originals = []
+    copies = []
+    
+    for file_data in sorted_files:
+        file_path = file_data[0]
+        is_copy = False
+        
+        # Check if file matches any duplicate pattern
+        if duplicate_patterns:
+            for pattern in duplicate_patterns:
+                if pattern in file_path:
+                    is_copy = True
+                    break
+        
+        if is_copy:
+            copies.append(file_data)
+        else:
+            potential_originals.append(file_data)
+    
+    # If no potential originals left (all matched patterns), 
+    # take the first (lexicographically smallest) as original
+    if not potential_originals:
+        original = sorted_files[0]
+        copies = sorted_files[1:]
+    # If only one potential original, use it
+    elif len(potential_originals) == 1:
+        original = potential_originals[0]
+        # Add remaining files to copies if not already there
+        for file_data in sorted_files:
+            if file_data != original and file_data not in copies:
+                copies.append(file_data)
+    # If multiple potential originals, use lexicographically first
+    else:
+        original = potential_originals[0]
+        copies = potential_originals[1:] + copies
+    
+    return original, copies
+
+def export_duplicates_list(db_path, output_file, path_pattern=None, short_format=False, duplicate_patterns=None):
     """Exports duplicate list to text file"""
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -482,45 +541,64 @@ def export_duplicates_list(db_path, output_file, path_pattern=None, short_format
             wasted = group_size * (count - 1)
             total_wasted_space += wasted
             
-            # Filter by pattern if specified
-            filtered_files = []
-            for file_data in files:
+            # Determine original and copies using new algorithm
+            original_file, copy_files = determine_original_and_copies(files, duplicate_patterns)
+            
+            # Filter by pattern if specified (apply to copies only, keep original for context)
+            filtered_copies = []
+            for file_data in copy_files:
                 file_path = file_data[0]
                 if path_pattern is None or path_pattern in file_path:
-                    filtered_files.append(file_data)
+                    filtered_copies.append(file_data)
             
-            if not filtered_files:
+            # Skip group if no copies match the pattern
+            if not filtered_copies:
                 continue
             
             if short_format:
-                # Export only file names
-                for file_path, file_name, file_size, duration, bit_rate, resolution, codec_name in filtered_files:
+                # Export only copy file paths (not original)
+                for file_path, file_name, file_size, duration, bit_rate, resolution, codec_name in filtered_copies:
                     f.write(f"{file_path}\n")
                     total_files += 1
             else:
-                # Export full information
-                f.write(f"# Group {i}: {len(files)} copies total, {len(filtered_files)} matching pattern, hash: {key_value[:16]}...\n")
+                # Export full information with original/copy classification
+                f.write(f"# Group {i}: {len(files)} files total, {len(filtered_copies)} copies to process, hash: {key_value[:16]}...\n")
                 f.write(f"# Total size: {format_file_size(group_size * len(files))}, wasted: {format_file_size(wasted)}\n")
                 f.write("#\n")
                 
-                # Show all files in group first (for context)
-                f.write("# All files in group:\n")
-                for j, (file_path, file_name, file_size, duration, bit_rate, resolution, codec_name) in enumerate(files):
+                # Show all files in group with classification
+                f.write("# File classification:\n")
+                
+                # Show original first
+                if original_file:
+                    file_path, file_name, file_size, duration, bit_rate, resolution, codec_name = original_file
                     size_str = format_file_size(file_size)
                     duration_str = format_duration(duration)
                     bitrate_str = format_bitrate(bit_rate)
                     codec_str = codec_name[:8] if codec_name else "N/A"
                     
-                    status = "ORIGINAL" if j == 0 else f"COPY {j}"
                     is_matching = path_pattern is None or path_pattern in file_path
-                    marker = " ← MATCHING PATTERN" if is_matching else ""
-                    f.write(f"# {status}: {size_str} | {duration_str} | {bitrate_str} | {resolution} | {codec_str}{marker}\n")
+                    marker = " ← MATCHES PATTERN" if is_matching else ""
+                    f.write(f"# ORIGINAL: {size_str} | {duration_str} | {bitrate_str} | {resolution} | {codec_str}{marker}\n")
                     f.write(f"# {file_path}\n")
                 
-                f.write("#\n# Files to process (matching pattern):\n")
+                # Show copies
+                for j, file_data in enumerate(copy_files, 1):
+                    file_path, file_name, file_size, duration, bit_rate, resolution, codec_name = file_data
+                    size_str = format_file_size(file_size)
+                    duration_str = format_duration(duration)
+                    bitrate_str = format_bitrate(bit_rate)
+                    codec_str = codec_name[:8] if codec_name else "N/A"
+                    
+                    is_matching = path_pattern is None or path_pattern in file_path
+                    marker = " ← MATCHES PATTERN" if is_matching else ""
+                    f.write(f"# COPY {j}: {size_str} | {duration_str} | {bitrate_str} | {resolution} | {codec_str}{marker}\n")
+                    f.write(f"# {file_path}\n")
                 
-                # Then export only filtered files for processing
-                for file_path, file_name, file_size, duration, bit_rate, resolution, codec_name in filtered_files:
+                f.write("#\n# Files to delete (copies matching pattern):\n")
+                
+                # Export only filtered copies for deletion
+                for file_path, file_name, file_size, duration, bit_rate, resolution, codec_name in filtered_copies:
                     f.write(f"{file_path}\n")
                     total_files += 1
                 
@@ -530,9 +608,11 @@ def export_duplicates_list(db_path, output_file, path_pattern=None, short_format
     
     print(f"\n{Fore.GREEN}✅ Duplicate list exported to: {output_file}{Style.RESET_ALL}")
     print(f"Duplicate groups found: {len(groups)}")
+    if duplicate_patterns:
+        print(f"Duplicate patterns used: {', '.join(duplicate_patterns)}")
     if path_pattern:
         print(f"Filtered by pattern: '{path_pattern}'")
-    print(f"Total files exported: {total_files}")
+    print(f"Copy files to process: {total_files}")
     print(f"Format: {'Short (paths only)' if short_format else 'Full (with metadata)'}")
     print(f"Space that can be freed: {Fore.RED}{format_file_size(total_wasted_space)}{Style.RESET_ALL}")
 
@@ -615,6 +695,12 @@ def main():
         help='Filter duplicates by path pattern (e.g., "Camera Uploads")'
     )
     parser.add_argument(
+        '--duplicate-patterns',
+        metavar='PATTERN',
+        nargs='+',
+        help='Patterns that indicate duplicate files (e.g., "Camera Uploads" "copy" "_copy")'
+    )
+    parser.add_argument(
         '--export-no-metadata',
         metavar='FILE',
         help='Export files without creation_date metadata to text file'
@@ -652,7 +738,7 @@ def main():
     
     # Export duplicates
     if args.export_duplicates:
-        export_duplicates_list(args.database, args.export_duplicates, args.export_pattern, args.short)
+        export_duplicates_list(args.database, args.export_duplicates, args.export_pattern, args.short, args.duplicate_patterns)
         return
     
     # Export files without metadata

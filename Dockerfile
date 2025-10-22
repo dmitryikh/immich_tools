@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rawtherapee \
     imagemagick \
     exiftool \
+    ffmpeg \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Рабочая директория

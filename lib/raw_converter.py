@@ -9,16 +9,11 @@ import subprocess
 import tempfile
 from pathlib import Path
 from PIL import Image
+from .utils import RAW_EXTENSIONS
 
 def is_raw_file(file_path):
     """Checks if file is a RAW format"""
-    raw_extensions = {
-        '.raw', '.dng', '.cr2', '.cr3', '.nef', '.arw', '.orf', 
-        '.rw2', '.pef', '.srw', '.raf', '.3fr', '.ari', '.srf', 
-        '.sr2', '.bay', '.crw', '.erf', '.mef', '.mrw', '.nrw', 
-        '.rwl', '.rwz', '.x3f'
-    }
-    return Path(file_path).suffix.lower() in raw_extensions
+    return Path(file_path).suffix.lower() in RAW_EXTENSIONS
 
 def convert_raw_image_rawtherapee(input_path, temp_output_path, quality=95, logger=None):
     """Converts RAW image to JPEG using RawTherapee CLI in Docker"""

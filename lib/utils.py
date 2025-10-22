@@ -10,6 +10,31 @@ import unicodedata
 from pathlib import Path
 from colorama import Fore, Style
 
+# Media file extensions
+# Supported video formats
+VIDEO_EXTENSIONS = {
+    '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', 
+    '.m4v', '.3gp', '.ogv', '.f4v', '.asf', '.rm', '.rmvb',
+    '.vob', '.ts', '.mts', '.m2ts', '.mpg', '.mpeg', '.m2v'
+}
+
+# RAW image formats
+RAW_EXTENSIONS = {
+    '.raw', '.dng', '.cr2', '.cr3', '.nef', '.arw', '.orf', 
+    '.rw2', '.pef', '.srw', '.raf', '.3fr', '.ari', '.srf', 
+    '.sr2', '.bay', '.crw', '.erf', '.mef', '.mrw', '.nrw', 
+    '.rwl', '.rwz', '.x3f'
+}
+
+# Supported image formats (regular + RAW)
+IMAGE_EXTENSIONS = {
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', 
+    '.webp', '.heic', '.heif'
+} | RAW_EXTENSIONS
+
+# All supported formats
+SUPPORTED_EXTENSIONS = VIDEO_EXTENSIONS | IMAGE_EXTENSIONS
+
 def setup_logging(log_file="photo_converter.log", log_level=logging.INFO):
     """Sets up logging to file and console"""
     # Create formatter

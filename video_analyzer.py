@@ -30,27 +30,15 @@ from threading import Lock
 from PIL import Image
 from PIL.ExifTags import TAGS
 
+# Import from local library
+from lib.metadata import get_image_metadata, get_video_metadata, VideoMetadataError, VideoCorruptedError, VideoTimeoutError, VideoNoStreamError
+from lib.utils import VIDEO_EXTENSIONS, RAW_EXTENSIONS, IMAGE_EXTENSIONS, SUPPORTED_EXTENSIONS
+
 # Initialize colorama
 init()
 
 class MediaAnalyzer:
     """Class for media file analysis (videos and images)"""
-    
-    # Supported video formats
-    VIDEO_EXTENSIONS = {
-        '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', 
-        '.m4v', '.3gp', '.ogv', '.f4v', '.asf', '.rm', '.rmvb',
-        '.vob', '.ts', '.mts', '.m2ts', '.mpg', '.mpeg', '.m2v'
-    }
-    
-    # Supported image formats
-    IMAGE_EXTENSIONS = {
-        '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', 
-        '.webp', '.heic', '.heif', '.raw', '.cr2', '.nef', '.arw', '.rw2'
-    }
-    
-    # All supported formats
-    SUPPORTED_EXTENSIONS = VIDEO_EXTENSIONS | IMAGE_EXTENSIONS
     
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -80,8 +68,6 @@ class MediaAnalyzer:
                 frame_rate REAL,  -- for videos
                 format_name TEXT,
                 format_long_name TEXT,
-                camera_make TEXT,  -- for images (EXIF)
-                camera_model TEXT,  -- for images (EXIF)
                 is_corrupted BOOLEAN DEFAULT 0,
                 error_message TEXT,
                 analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -114,93 +100,52 @@ class MediaAnalyzer:
             return None
     
     def analyze_image_file(self, file_path: str) -> Dict:
-        """Analyzes image file using PIL/Pillow"""
+        """Analyzes image file using PIL/Pillow and exiftool via Docker for metadata"""
         try:
-            # Check if file is RAW format that PIL cannot handle
             file_ext = Path(file_path).suffix.lower()
-            if file_ext in ['.rw2', '.raw', '.cr2', '.nef', '.arw']:
-                # For RAW files, we can only get basic file info
-                return {
-                    'is_corrupted': False,
-                    'media_type': 'image',
-                    'width': None,
-                    'height': None,
-                    'format_name': file_ext[1:],  # Remove dot
-                    'format_long_name': f"{file_ext[1:].upper()} RAW Image",
-                    'creation_date': None,
-                    'camera_make': None,
-                    'camera_model': None
-                }
             
-            with Image.open(file_path) as img:
-                # Basic image info
-                metadata = {
-                    'is_corrupted': False,
-                    'media_type': 'image',
-                    'width': img.width,
-                    'height': img.height,
-                    'format_name': img.format.lower() if img.format else None,
-                    'format_long_name': f"{img.format} Image" if img.format else "Unknown Image",
-                    'creation_date': None,
-                    'camera_make': None,
-                    'camera_model': None
-                }
+            # Initialize basic metadata structure
+            metadata = {
+                'is_corrupted': False,
+                'media_type': 'image',
+                'width': None,
+                'height': None,
+                'format_name': file_ext[1:] if file_ext else None,  # Remove dot
+                'format_long_name': f"{file_ext[1:].upper()} Image" if file_ext else "Unknown Image",
+                'creation_date': None
+            }
+            
+            # For RAW files, we use exiftool for everything (including dimensions if available)
+            if file_ext in RAW_EXTENSIONS:
+                # Get creation date using exiftool via Docker
+                exif_metadata = get_image_metadata(file_path)
+                if 'creation_date' in exif_metadata:
+                    metadata['creation_date'] = exif_metadata['creation_date']
                 
-                # Extract EXIF data if available - use different methods for different formats
-                exif_data = None
-                try:
-                    # Try the standard method first
-                    if hasattr(img, '_getexif'):
-                        exif_data = img._getexif()
-                    else:
-                        # For TIFF and other formats, try getexif() method
-                        exif_data = img.getexif()
-                except (AttributeError, OSError):
-                    # If both methods fail, continue without EXIF
-                    pass
-                
-                if exif_data:
-                    # Parse EXIF data - handle both old dict format and new ExifTags format
-                    exif_dict = {}
-                    try:
-                        if isinstance(exif_data, dict):
-                            # Old format: already a dictionary
-                            for tag_id, value in exif_data.items():
-                                tag = TAGS.get(tag_id, tag_id)
-                                exif_dict[tag] = value
-                        else:
-                            # New format: ExifTags object
-                            for tag_id, value in exif_data.items():
-                                tag = TAGS.get(tag_id, tag_id)
-                                exif_dict[tag] = value
-                    except Exception:
-                        # If EXIF parsing fails, continue without it
-                        pass
-                    
-                    if exif_dict:
-                        # Extract creation date
-                        for date_tag in ['DateTimeOriginal', 'DateTime', 'DateTimeDigitized']:
-                            if date_tag in exif_dict:
-                                try:
-                                    date_str = exif_dict[date_tag]
-                                    if isinstance(date_str, str) and date_str.strip():
-                                        # Parse EXIF datetime format: "YYYY:MM:DD HH:MM:SS"
-                                        creation_date = datetime.strptime(date_str.strip(), '%Y:%m:%d %H:%M:%S')
-                                        metadata['creation_date'] = creation_date.isoformat()
-                                        break
-                                except (ValueError, TypeError):
-                                    continue
-                        
-                        # Extract camera info
-                        make = exif_dict.get('Make')
-                        model = exif_dict.get('Model')
-                        
-                        if make and isinstance(make, str):
-                            metadata['camera_make'] = make.strip()
-                        if model and isinstance(model, str):
-                            metadata['camera_model'] = model.strip()
+                # Update format info for RAW files
+                metadata['format_long_name'] = f"{file_ext[1:].upper()} RAW Image"
                 
                 return metadata
+            
+            # For non-RAW files, use PIL for dimensions and format, exiftool for creation date
+            try:
+                with Image.open(file_path) as img:
+                    metadata.update({
+                        'width': img.width,
+                        'height': img.height,
+                        'format_name': img.format.lower() if img.format else file_ext[1:],
+                        'format_long_name': f"{img.format} Image" if img.format else f"{file_ext[1:].upper()} Image"
+                    })
+            except Exception as pil_error:
+                # If PIL fails, we can still try to get metadata with exiftool
+                metadata['error_message'] = f"PIL error (continuing with exiftool): {str(pil_error)}"
+            
+            # Get creation date using exiftool via Docker (works for both RAW and regular images)
+            exif_metadata = get_image_metadata(file_path)
+            if 'creation_date' in exif_metadata:
+                metadata['creation_date'] = exif_metadata['creation_date']
+            
+            return metadata
                 
         except Exception as e:
             return {
@@ -209,114 +154,7 @@ class MediaAnalyzer:
                 'media_type': 'image'
             }
 
-    def analyze_video_with_ffprobe(self, file_path: str) -> Dict:
-        """Analyzes video file using ffprobe"""
-        try:
-            # ffprobe command to get video information
-            cmd = [
-                'ffprobe',
-                '-v', 'quiet',
-                '-print_format', 'json',
-                '-show_format',
-                '-show_streams',
-                '-select_streams', 'v:0',  # Only first video stream
-                file_path
-            ]
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30  # 30 second timeout
-            )
-            
-            if result.returncode != 0:
-                return {
-                    'is_corrupted': True,
-                    'error_message': f"ffprobe error: {result.stderr.strip()}",
-                    'media_type': 'video'
-                }
-            
-            data = json.loads(result.stdout)
-            
-            # Extract format information
-            format_info = data.get('format', {})
-            
-            # Find first video stream
-            video_stream = None
-            for stream in data.get('streams', []):
-                if stream.get('codec_type') == 'video':
-                    video_stream = stream
-                    break
-            
-            if not video_stream:
-                return {
-                    'is_corrupted': True,
-                    'error_message': "No video stream found",
-                    'media_type': 'video'
-                }
-            
-            # Extract metadata
-            metadata = {
-                'is_corrupted': False,
-                'media_type': 'video',
-                'duration': float(format_info.get('duration', 0)),
-                'width': int(video_stream.get('width', 0)),
-                'height': int(video_stream.get('height', 0)),
-                'codec_name': video_stream.get('codec_name', ''),
-                'codec_long_name': video_stream.get('codec_long_name', ''),
-                'bit_rate': int(format_info.get('bit_rate', 0)),
-                'format_name': format_info.get('format_name', ''),
-                'format_long_name': format_info.get('format_long_name', ''),
-                'frame_rate': 0.0,
-                'creation_date': None,
-                'error_message': None
-            }
-            
-            # Extract creation date from format tags if available
-            tags = format_info.get('tags', {})
-            for tag_key in ['creation_time', 'date', 'DATE']:
-                if tag_key in tags:
-                    try:
-                        # Parse ISO format datetime
-                        date_str = tags[tag_key]
-                        if date_str and date_str != '0000-00-00T00:00:00.000000Z':
-                            # Remove microseconds and timezone for parsing
-                            clean_date = date_str.replace('Z', '').split('.')[0]
-                            if 'T' in clean_date:
-                                creation_date = datetime.fromisoformat(clean_date)
-                                metadata['creation_date'] = creation_date.isoformat()
-                                break
-                    except (ValueError, TypeError):
-                        continue
-            
-            # Calculate frame rate
-            r_frame_rate = video_stream.get('r_frame_rate', '0/1')
-            if '/' in r_frame_rate:
-                num, den = r_frame_rate.split('/')
-                if int(den) != 0:
-                    metadata['frame_rate'] = float(num) / float(den)
-            
-            return metadata
-            
-        except subprocess.TimeoutExpired:
-            return {
-                'is_corrupted': True,
-                'error_message': "ffprobe timeout (30s)",
-                'media_type': 'video'
-            }
-        except json.JSONDecodeError as e:
-            return {
-                'is_corrupted': True,
-                'error_message': f"JSON decode error: {str(e)}",
-                'media_type': 'video'
-            }
-        except Exception as e:
-            return {
-                'is_corrupted': True,
-                'error_message': f"Analysis error: {str(e)}",
-                'media_type': 'video'
-            }
+
     
     def is_file_processed(self, file_path: str, file_modified_time: float) -> bool:
         """Checks if file was already processed and hasn't changed"""
@@ -349,9 +187,8 @@ class MediaAnalyzer:
                     media_type, creation_date,
                     duration, width, height, codec_name, codec_long_name,
                     bit_rate, frame_rate, format_name, format_long_name,
-                    camera_make, camera_model,
                     is_corrupted, error_message, analyzed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 file_path,
                 os.path.basename(file_path),
@@ -369,8 +206,6 @@ class MediaAnalyzer:
                 metadata.get('frame_rate'),
                 metadata.get('format_name'),
                 metadata.get('format_long_name'),
-                metadata.get('camera_make'),
-                metadata.get('camera_model'),
                 metadata.get('is_corrupted', False),
                 metadata.get('error_message'),
                 datetime.now().isoformat()
@@ -399,7 +234,7 @@ class MediaAnalyzer:
                 file_path = os.path.join(root, file)
                 file_ext = Path(file).suffix.lower()
                 
-                if file_ext in self.SUPPORTED_EXTENSIONS:
+                if file_ext in SUPPORTED_EXTENSIONS:
                     media_files.append(file_path)
         
         if skipped_system_files > 0:
@@ -429,9 +264,38 @@ class MediaAnalyzer:
             # Determine file type and analyze accordingly
             file_ext = Path(file_path).suffix.lower()
             
-            if file_ext in self.VIDEO_EXTENSIONS:
-                metadata = self.analyze_video_with_ffprobe(file_path)
-            elif file_ext in self.IMAGE_EXTENSIONS:
+            if file_ext in VIDEO_EXTENSIONS:
+                try:
+                    metadata = get_video_metadata(file_path)
+                    # Add metadata that MediaAnalyzer expects
+                    metadata['is_corrupted'] = False
+                    metadata['media_type'] = 'video'
+                    metadata['error_message'] = None
+                except VideoCorruptedError as e:
+                    metadata = {
+                        'is_corrupted': True,
+                        'error_message': str(e),
+                        'media_type': 'video'
+                    }
+                except VideoTimeoutError as e:
+                    metadata = {
+                        'is_corrupted': True,
+                        'error_message': str(e),
+                        'media_type': 'video'
+                    }
+                except VideoNoStreamError as e:
+                    metadata = {
+                        'is_corrupted': True,
+                        'error_message': str(e),
+                        'media_type': 'video'
+                    }
+                except VideoMetadataError as e:
+                    metadata = {
+                        'is_corrupted': True,
+                        'error_message': str(e),
+                        'media_type': 'video'
+                    }
+            elif file_ext in IMAGE_EXTENSIONS:
                 metadata = self.analyze_image_file(file_path)
             else:
                 raise ValueError(f"Unsupported file type: {file_ext}")
@@ -452,7 +316,7 @@ class MediaAnalyzer:
             error_metadata = {
                 'is_corrupted': True,
                 'error_message': f"Processing error: {str(e)}",
-                'media_type': 'video' if Path(file_path).suffix.lower() in self.VIDEO_EXTENSIONS else 'image'
+                'media_type': 'video' if Path(file_path).suffix.lower() in VIDEO_EXTENSIONS else 'image'
             }
             try:
                 self.save_media_info(file_path, error_metadata)
@@ -579,17 +443,6 @@ class MediaAnalyzer:
         ''')
         top_resolutions = cursor.fetchall()
         
-        # Top cameras (images only)
-        cursor.execute('''
-            SELECT camera_make || ' ' || camera_model as camera, COUNT(*) as count 
-            FROM media_files 
-            WHERE is_corrupted = 0 AND media_type = "image" AND camera_make IS NOT NULL AND camera_model IS NOT NULL
-            GROUP BY camera_make, camera_model 
-            ORDER BY count DESC 
-            LIMIT 10
-        ''')
-        top_cameras = cursor.fetchall()
-        
         conn.close()
         
         return {
@@ -601,8 +454,7 @@ class MediaAnalyzer:
             'total_size_gb': total_size / (1024**3),
             'total_duration_hours': total_duration / 3600,
             'top_codecs': top_codecs,
-            'top_resolutions': top_resolutions,
-            'top_cameras': top_cameras
+            'top_resolutions': top_resolutions
         }
 
 def main():
@@ -643,15 +495,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Check for ffprobe availability
-    try:
-        subprocess.run(['ffprobe', '-version'], capture_output=True, check=True)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print(f"{Fore.RED}Error: ffprobe not found. Install FFmpeg.{Style.RESET_ALL}")
-        print("Install on macOS: brew install ffmpeg")
-        print("Install on Ubuntu: sudo apt install ffmpeg")
-        sys.exit(1)
-    
     # Initialize analyzer
     analyzer = MediaAnalyzer(args.database)
     
@@ -678,11 +521,6 @@ def main():
             print(f"\n{Fore.YELLOW}📐 Top resolutions:{Style.RESET_ALL}")
             for resolution, count in stats['top_resolutions']:
                 print(f"  {resolution}: {count} files")
-        
-        if stats['top_cameras']:
-            print(f"\n{Fore.YELLOW}📷 Top cameras:{Style.RESET_ALL}")
-            for camera, count in stats['top_cameras']:
-                print(f"  {camera}: {count} files")
     
     else:
         # Analyze directory

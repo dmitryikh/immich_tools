@@ -27,10 +27,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 import time
 from tqdm import tqdm
-from PIL import Image
-from PIL.ExifTags import TAGS
 import subprocess
 import json
+
+# Import from local library
+from lib.metadata import set_image_exif_datetime, set_video_metadata_datetime, get_image_metadata, get_video_metadata, VideoMetadataError
+from lib.utils import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, SUPPORTED_EXTENSIONS
 
 # Colorama init
 init()
@@ -45,10 +47,6 @@ stats = {
     'errors': 0
 }
 
-# Supported file extensions
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp', '.heic', '.heif'}
-VIDEO_EXTENSIONS = {'.mp4', '.mov', '.avi', '.mkv', '.wmv', '.flv', '.m4v', '.3gp', '.mts', '.m2ts', '.mpg'}
-ALL_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 
 def parse_datetime_from_path(file_path: str) -> Optional[datetime]:
     """
@@ -140,137 +138,16 @@ def has_creation_metadata(file_path: str) -> bool:
         file_ext = Path(file_path).suffix.lower()
         
         if file_ext in IMAGE_EXTENSIONS:
-            return has_image_metadata(file_path)
+            metadata = get_image_metadata(file_path)
+            return 'creation_date' in metadata and metadata['creation_date']
         elif file_ext in VIDEO_EXTENSIONS:
-            return has_video_metadata(file_path)
+            metadata = get_video_metadata(file_path)
+            return metadata.get('creation_date') is not None
             
     except Exception:
         pass
     
     return False
-
-def has_image_metadata(file_path: str) -> bool:
-    """Check if image has EXIF creation date"""
-    try:
-        with Image.open(file_path) as img:
-            exif = img._getexif()
-            if exif:
-                # Look for DateTime, DateTimeOriginal, DateTimeDigitized
-                datetime_tags = [36867, 36868, 306]  # DateTimeOriginal, DateTimeDigitized, DateTime
-                for tag in datetime_tags:
-                    if tag in exif and exif[tag]:
-                        return True
-    except Exception:
-        pass
-    
-    return False
-
-def has_video_metadata(file_path: str) -> bool:
-    """Check if video has creation date metadata using ffprobe"""
-    try:
-        cmd = [
-            'ffprobe', '-v', 'quiet', '-print_format', 'json', 
-            '-show_entries', 'format_tags:stream_tags', file_path
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        if result.returncode != 0:
-            return False
-            
-        data = json.loads(result.stdout)
-        
-        # Check format tags
-        format_tags = data.get('format', {}).get('tags', {})
-        if format_tags:
-            creation_keys = ['creation_time', 'date', 'DATE']
-            for key in creation_keys:
-                if any(k.lower() == key.lower() for k in format_tags.keys()):
-                    return True
-        
-        # Check stream tags
-        streams = data.get('streams', [])
-        for stream in streams:
-            stream_tags = stream.get('tags', {})
-            if stream_tags:
-                creation_keys = ['creation_time', 'date', 'DATE']
-                for key in creation_keys:
-                    if any(k.lower() == key.lower() for k in stream_tags.keys()):
-                        return True
-                        
-    except Exception:
-        pass
-    
-    return False
-
-def set_image_exif_datetime(file_path: str, creation_time: datetime, dry_run: bool = False) -> bool:
-    """Set EXIF datetime for image files using exiftool"""
-    try:
-        if dry_run:
-            return True
-            
-        # Format datetime for exiftool (YYYY:MM:DD HH:MM:SS)
-        time_str = creation_time.strftime('%Y:%m:%d %H:%M:%S')
-        
-        # Use exiftool to set EXIF datetime tags
-        cmd = [
-            'exiftool', '-overwrite_original',
-            f'-DateTimeOriginal={time_str}',
-            f'-CreateDate={time_str}',
-            f'-ModifyDate={time_str}',
-            file_path
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        return result.returncode == 0
-        
-    except Exception:
-        return False
-
-def set_video_metadata_datetime(file_path: str, creation_time: datetime, dry_run: bool = False) -> bool:
-    """Set creation time metadata for video files using ffmpeg"""
-    try:
-        if dry_run:
-            return True
-            
-        # Format datetime for ffmpeg (ISO 8601 format)
-        time_str = creation_time.strftime('%Y-%m-%dT%H:%M:%S')
-        
-        # Create temporary output file
-        temp_path = f"{file_path}.tmp"
-        
-        # Use ffmpeg to set metadata without re-encoding
-        cmd = [
-            'ffmpeg', '-i', file_path,
-            '-c', 'copy',  # Copy without re-encoding
-            '-metadata', f'creation_time={time_str}',
-            '-metadata', f'date={time_str}',
-            '-y',  # Overwrite output file
-            temp_path
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        
-        if result.returncode == 0:
-            # Replace original file with updated one
-            os.replace(temp_path, file_path)
-            return True
-        else:
-            # Clean up temp file if it exists
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-            return False
-        
-    except Exception as e:
-        # Clean up temp file if it exists
-        temp_path = f"{file_path}.tmp"
-        if os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except:
-                pass
-        return False
-
-
 
 def set_metadata_datetime(file_path: str, creation_time: datetime, dry_run: bool = False, prefer_metadata: bool = True, tools_available: dict = None) -> tuple[bool, str]:
     """
@@ -286,25 +163,22 @@ def set_metadata_datetime(file_path: str, creation_time: datetime, dry_run: bool
     Returns:
         tuple: (success: bool, method: str) - success status and method used
     """
-    if tools_available is None:
-        tools_available = {'ffmpeg': True, 'exiftool': True}
-        
     file_ext = Path(file_path).suffix.lower()
     
-    # Set metadata based on file type and available tools
-    if file_ext in IMAGE_EXTENSIONS and tools_available.get('exiftool', False):
+    # Set metadata based on file type
+    if file_ext in IMAGE_EXTENSIONS:
         success = set_image_exif_datetime(file_path, creation_time, dry_run)
         if success:
             return True, "EXIF"
-    elif file_ext in VIDEO_EXTENSIONS and tools_available.get('ffmpeg', False):
+    elif file_ext in VIDEO_EXTENSIONS:
         success = set_video_metadata_datetime(file_path, creation_time, dry_run)
         if success:
             return True, "Video Metadata"
     
-    # No suitable metadata tool available
-    return False, "No suitable tool available"
+    # No suitable file type
+    return False, "Unsupported file type"
 
-def process_file(file_path: str, dry_run: bool = False, verbose: bool = False, tools_available: dict = None) -> str:
+def process_file(file_path: str, dry_run: bool = False, verbose: bool = False) -> str:
     """Process single file - check metadata and restore if needed"""
     global stats
     
@@ -338,15 +212,15 @@ def process_file(file_path: str, dry_run: bool = False, verbose: bool = False, t
                 stats['updated'] += 1
             
             file_ext = Path(file_path).suffix.lower()
-            if file_ext in IMAGE_EXTENSIONS and tools_available.get('exiftool', False):
+            if file_ext in IMAGE_EXTENSIONS:
                 method = "EXIF"
-            elif file_ext in VIDEO_EXTENSIONS and tools_available.get('ffmpeg', False):
+            elif file_ext in VIDEO_EXTENSIONS:
                 method = "Video Metadata"
             else:
-                method = "No suitable tool"
+                method = "Unknown"
             return f"{Fore.CYAN}[DRY RUN] Would set {file_path} -> {parsed_datetime} (via {method}){Style.RESET_ALL}"
         else:
-            success, method = set_metadata_datetime(file_path, parsed_datetime, dry_run, True, tools_available)
+            success, method = set_metadata_datetime(file_path, parsed_datetime, dry_run)
             
             with stats_lock:
                 stats['processed'] += 1
@@ -378,7 +252,7 @@ def find_media_files(directory: str) -> List[str]:
             file_path = os.path.join(root, file)
             file_ext = Path(file_path).suffix.lower()
             
-            if file_ext in ALL_EXTENSIONS:
+            if file_ext in SUPPORTED_EXTENSIONS:
                 media_files.append(file_path)
     
     return media_files
@@ -426,38 +300,7 @@ def main():
         print(f"{Fore.RED}Error: Directory '{args.directory}' does not exist{Style.RESET_ALL}")
         sys.exit(1)
     
-    # Check for required tools
-    tools_available = {
-        'ffprobe': False,
-        'ffmpeg': False,
-        'exiftool': False
-    }
-    
-    # Check ffprobe
-    try:
-        subprocess.run(['ffprobe', '-version'], capture_output=True, check=True, timeout=5)
-        tools_available['ffprobe'] = True
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        print(f"{Fore.YELLOW}Warning: ffprobe not found. Video metadata detection may not work properly.{Style.RESET_ALL}")
-    
-    # Check ffmpeg  
-    try:
-        subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True, timeout=5)
-        tools_available['ffmpeg'] = True
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        print(f"{Fore.YELLOW}Warning: ffmpeg not found. Video metadata writing will be disabled.{Style.RESET_ALL}")
-    
-    # Check exiftool
-    try:
-        subprocess.run(['exiftool', '-ver'], capture_output=True, check=True, timeout=5)
-        tools_available['exiftool'] = True
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        print(f"{Fore.YELLOW}Warning: exiftool not found. Image EXIF writing will be disabled.{Style.RESET_ALL}")
-    
-    if not any(tools_available.values()):
-        print(f"{Fore.RED}Error: No metadata tools found. Cannot proceed without ffmpeg or exiftool.{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}Install ffmpeg and exiftool for metadata support.{Style.RESET_ALL}")
-        sys.exit(1)
+
     
     # Find media files
     media_files = find_media_files(args.directory)
@@ -485,7 +328,7 @@ def main():
             # Parallel processing
             with ThreadPoolExecutor(max_workers=args.workers) as executor:
                 future_to_file = {
-                    executor.submit(process_file, file_path, args.dry_run, args.verbose, tools_available): file_path 
+                    executor.submit(process_file, file_path, args.dry_run, args.verbose): file_path 
                     for file_path in media_files
                 }
                 
@@ -499,7 +342,7 @@ def main():
         else:
             # Sequential processing
             for file_path in media_files:
-                result = process_file(file_path, args.dry_run, args.verbose, tools_available)
+                result = process_file(file_path, args.dry_run, args.verbose)
                 
                 if args.verbose and not result.startswith("skipped"):
                     print(result)
