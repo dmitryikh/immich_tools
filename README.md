@@ -26,6 +26,8 @@ pip install -r requirements.txt
 # Setup configuration
 cp .env.example .env
 # Edit .env with your Immich server URL and API key
+
+docker buildx build . -t immich_tools
 ```
 
 ## Use cases

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Video Database Query Tool
+Media Database Query Tool
 
-Utility for querying video file database with convenient formatting.
+Utility for querying media file database (videos and images) with convenient formatting.
 
 Usage:
 python video_query.py --export-duplicates duplicates_by_hash.txt --export-pattern 'Camera Uploads'
 
 python video_query.py --export-list high_quality_files.txt --export-min-bitrate 15 --export-min-size 50
+
+python video_query.py --export-no-metadata files_without_creation_date.txt
 """
 
 import sqlite3
@@ -77,7 +79,7 @@ def query_largest_files(db_path, limit=20):
             width || 'x' || height as resolution,
             codec_name,
             is_corrupted
-        FROM videos 
+        FROM media_files 
         WHERE file_size IS NOT NULL
         ORDER BY file_size DESC 
         LIMIT ?
@@ -103,13 +105,14 @@ def query_largest_files(db_path, limit=20):
         bitrate_str = format_bitrate(bit_rate)
         codec_str = codec_name[:7] if codec_name else "N/A"
         status_str = "❌BAD" if is_corrupted else "✅OK"
+        resolution_str = resolution if resolution else "N/A"
         
         # Color highlighting
         status_color = Fore.RED if is_corrupted else Fore.GREEN
         size_color = Fore.MAGENTA if file_size and file_size > 1_000_000_000 else Fore.BLUE  # > 1GB
         
         print(f"{i:<3} {size_color}{size_str:<10}{Style.RESET_ALL} {duration_str:<8} {bitrate_str:<12} "
-              f"{resolution:<10} {codec_str:<8} {status_color}{status_str:<6}{Style.RESET_ALL} {file_name}")
+              f"{resolution_str:<10} {codec_str:<8} {status_color}{status_str:<6}{Style.RESET_ALL} {file_name}")
     
     conn.close()
 
@@ -130,7 +133,7 @@ def query_high_bitrate_files(db_path, min_bitrate_mbps=10, limit=20):
             width || 'x' || height as resolution,
             codec_name,
             is_corrupted
-        FROM videos 
+        FROM media_files 
         WHERE bit_rate IS NOT NULL AND bit_rate >= ? AND is_corrupted = 0
         ORDER BY bit_rate DESC 
         LIMIT ?
@@ -159,8 +162,10 @@ def query_high_bitrate_files(db_path, min_bitrate_mbps=10, limit=20):
         # Color highlighting for very high bitrate
         bitrate_color = Fore.RED if bit_rate and bit_rate > 50_000_000 else Fore.MAGENTA  # > 50 Mbps
         
+        resolution_str = resolution if resolution else "N/A"
+        
         print(f"{i:<3} {bitrate_color}{bitrate_str:<12}{Style.RESET_ALL} {size_str:<10} {duration_str:<8} "
-              f"{resolution:<10} {codec_str:<8} {file_name}")
+              f"{resolution_str:<10} {codec_str:<8} {file_name}")
     
     conn.close()
 
@@ -179,7 +184,7 @@ def query_longest_files(db_path, limit=20):
             width || 'x' || height as resolution,
             codec_name,
             is_corrupted
-        FROM videos 
+        FROM media_files 
         WHERE duration IS NOT NULL AND duration > 0 AND is_corrupted = 0
         ORDER BY duration DESC 
         LIMIT ?
@@ -207,9 +212,10 @@ def query_longest_files(db_path, limit=20):
         
         # Color highlighting for very long files
         duration_color = Fore.RED if duration and duration > 3600 else Fore.CYAN  # > 1 hour
+        resolution_str = resolution if resolution else "N/A"
         
         print(f"{i:<3} {duration_color}{duration_str:<10}{Style.RESET_ALL} {size_str:<10} {bitrate_str:<12} "
-              f"{resolution:<10} {codec_str:<8} {file_name}")
+              f"{resolution_str:<10} {codec_str:<8} {file_name}")
     
     conn.close()
 
@@ -230,7 +236,7 @@ def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50,
             duration,
             width || 'x' || height as resolution,
             codec_name
-        FROM videos 
+        FROM media_files 
         WHERE bit_rate IS NOT NULL 
           AND bit_rate >= ? 
           AND file_size IS NOT NULL 
@@ -308,6 +314,117 @@ def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50,
     if len(results) > 5:
         print(f"  ... and {len(results) - 5} more files")
 
+def export_no_metadata_files(db_path, output_file, short_format=False):
+    """Exports files without creation_date metadata to text file"""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    query = '''
+        SELECT 
+            file_path,
+            file_name,
+            file_size,
+            media_type,
+            duration,
+            bit_rate,
+            width || 'x' || height as resolution,
+            codec_name,
+            camera_make,
+            camera_model
+        FROM media_files 
+        WHERE creation_date IS NULL AND is_corrupted = 0
+        ORDER BY media_type, file_size DESC
+    '''
+    
+    cursor.execute(query)
+    results = cursor.fetchall()
+    
+    if not results:
+        print(f"{Fore.YELLOW}All files have creation_date metadata{Style.RESET_ALL}")
+        conn.close()
+        return
+    
+    # Write to file
+    with open(output_file, 'w', encoding='utf-8') as f:
+        total_size = 0
+        image_count = 0
+        video_count = 0
+        
+        if not short_format:
+            # Header for full format
+            f.write(f"# List of files without creation_date metadata\n")
+            f.write(f"# Found {len(results)} files\n")
+            f.write(f"# Created: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("#\n")
+            f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec | camera\n")
+            f.write("#" + "="*100 + "\n\n")
+        
+        for row in results:
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, camera_make, camera_model = row
+            
+            total_size += file_size if file_size else 0
+            if media_type == 'image':
+                image_count += 1
+            else:
+                video_count += 1
+            
+            if short_format:
+                # Short format: only file paths
+                f.write(f"{file_path}\n")
+            else:
+                # Full format: file path with metadata
+                size_str = format_file_size(file_size)
+                duration_str = format_duration(duration) if duration else "N/A"
+                bitrate_str = format_bitrate(bit_rate)
+                codec_str = codec_name if codec_name else "N/A"
+                camera_info = f"{camera_make} {camera_model}".strip() if camera_make or camera_model else "N/A"
+                
+                f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution} | {codec_str} | {camera_info}\n")
+                f.write(f"{file_path}\n\n")
+        
+        if not short_format:
+            # Summary statistics for full format
+            f.write("#" + "="*100 + "\n")
+            f.write(f"# SUMMARY:\n")
+            f.write(f"# Total files: {len(results)} (Images: {image_count}, Videos: {video_count})\n")
+            f.write(f"# Total size: {format_file_size(total_size)}\n")
+    
+    conn.close()
+    
+    # Output statistics to screen
+    print(f"\n{Fore.GREEN}✅ No-metadata files list exported to: {output_file}{Style.RESET_ALL}")
+    print(f"Files without creation_date: {len(results)} (Images: {image_count}, Videos: {video_count})")
+    print(f"Format: {'Short (paths only)' if short_format else 'Full (with metadata)'}")
+    print(f"Total size: {format_file_size(sum(row[2] for row in results if row[2]))}")
+    
+    # Show examples by type
+    print(f"\n{Fore.CYAN}Examples of files without metadata:{Style.RESET_ALL}")
+    
+    # Show images first
+    image_examples = [row for row in results if row[3] == 'image'][:3]
+    if image_examples:
+        print(f"  {Fore.BLUE}Images:{Style.RESET_ALL}")
+        for i, row in enumerate(image_examples):
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, camera_make, camera_model = row
+            size_str = format_file_size(file_size)
+            camera_info = f"{camera_make} {camera_model}".strip() if camera_make or camera_model else "No camera info"
+            print(f"    {i+1}. {file_name} ({size_str}, {resolution}, {camera_info})")
+    
+    # Show videos
+    video_examples = [row for row in results if row[3] == 'video'][:3]
+    if video_examples:
+        print(f"  {Fore.MAGENTA}Videos:{Style.RESET_ALL}")
+        for i, row in enumerate(video_examples):
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, camera_make, camera_model = row
+            size_str = format_file_size(file_size)
+            duration_str = format_duration(duration)
+            codec_str = codec_name if codec_name else "N/A"
+            print(f"    {i+1}. {file_name} ({size_str}, {duration_str}, {codec_str})")
+    
+    remaining = len(results) - len(image_examples) - len(video_examples)
+    if remaining > 0:
+        print(f"  ... and {remaining} more files")
+
 def export_duplicates_list(db_path, output_file, path_pattern=None, short_format=False):
     """Exports duplicate list to text file"""
     conn = sqlite3.connect(db_path)
@@ -316,7 +433,7 @@ def export_duplicates_list(db_path, output_file, path_pattern=None, short_format
     # Search by hash (exact duplicates)
     query = '''
         SELECT file_hash, COUNT(*) as cnt
-        FROM videos 
+        FROM media_files 
         WHERE file_hash IS NOT NULL AND file_hash != '' AND is_corrupted = 0
         GROUP BY file_hash
         HAVING COUNT(*) >= 2
@@ -350,7 +467,7 @@ def export_duplicates_list(db_path, output_file, path_pattern=None, short_format
             detail_query = '''
                 SELECT file_path, file_name, file_size, duration, bit_rate,
                        width || 'x' || height as resolution, codec_name
-                FROM videos 
+                FROM media_files 
                 WHERE file_hash = ? AND is_corrupted = 0
                 ORDER BY file_size DESC
             '''
@@ -422,12 +539,12 @@ def export_duplicates_list(db_path, output_file, path_pattern=None, short_format
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(
-        description='Video file database queries'
+        description='Media file database queries (videos and images)'
     )
     parser.add_argument(
         '--database', '-d',
-        default='video_analysis.db',
-        help='Path to SQLite database (default: video_analysis.db)'
+        default='media_analysis.db',
+        help='Path to SQLite database (default: media_analysis.db)'
     )
     parser.add_argument(
         '--largest', '-l',
@@ -498,6 +615,11 @@ def main():
         help='Filter duplicates by path pattern (e.g., "Camera Uploads")'
     )
     parser.add_argument(
+        '--export-no-metadata',
+        metavar='FILE',
+        help='Export files without creation_date metadata to text file'
+    )
+    parser.add_argument(
         '--short', '-s',
         action='store_true',
         help='Export only file names (short format)'
@@ -509,7 +631,7 @@ def main():
     try:
         conn = sqlite3.connect(args.database)
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM videos")
+        cursor.execute("SELECT COUNT(*) FROM media_files")
         total_files = cursor.fetchone()[0]
         conn.close()
         
@@ -531,6 +653,11 @@ def main():
     # Export duplicates
     if args.export_duplicates:
         export_duplicates_list(args.database, args.export_duplicates, args.export_pattern, args.short)
+        return
+    
+    # Export files without metadata
+    if args.export_no_metadata:
+        export_no_metadata_files(args.database, args.export_no_metadata, args.short)
         return
     
     # Execute queries
