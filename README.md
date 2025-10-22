@@ -41,6 +41,13 @@ The command will parse all image assets from `Album Name` if creation time is ta
 python date_from_name.py --album "Album Name" --target-year 2025 --dry-run
 ```
 
+### Restore metadata from file path
+Before loading image and video files to Immich, one can run this tool to update file metadata (if it's not set) based on the path. The datetime information should be encoded in the path. See the comment to `restore_metadata_from_path.py` for supported formats.
+```bash
+# Warning! This tool overwrite files inplace. Ensure you have backup copy before proceed.
+python restore_metadata_from_path.py path/to/library --verbose
+```
+
 ### Collect data on video files in the directory (recoursively)
 ```bash
 python video_analyzer.py folder_to_analyze --database video_analysis.db --workers 16
