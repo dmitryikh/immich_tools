@@ -2,8 +2,8 @@
 """
 Restore Creation Time Metadata from File Paths
 
-Recursively scans directories for video and image files and attempts to restore
-creation time metadata from file paths and filenames when EXIF data is missing.
+Processes files from a list and attempts to restore creation time metadata 
+from file paths and filenames when EXIF data is missing.
 
 Supported patterns:
 - /path/2011/folder/file.mov -> 2011-01-01 00:00:00
@@ -12,14 +12,14 @@ Supported patterns:
 - /path/2015/folder/2015-12-27 19-22-41.MP4 -> 2015-12-27 19:22:41
 
 Usage:
-python restore_metadata_from_path.py /path/to/directory --dry-run
+python restore_metadata_from_path.py files_list.txt --pattern "Camera Uploads" --dry-run
 """
 
 import os
 import sys
 import argparse
 import re
-from typing import Optional, List, Tuple
+from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
 from colorama import Fore, Style, init
@@ -27,12 +27,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 import time
 from tqdm import tqdm
-import subprocess
-import json
 
 # Import from local library
 from lib.metadata import set_image_exif_datetime, set_video_metadata_datetime, get_image_metadata, get_video_metadata, VideoMetadataError
-from lib.utils import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, SUPPORTED_EXTENSIONS
+from lib.utils import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, SUPPORTED_EXTENSIONS, read_file_list
 
 # Colorama init
 init()
@@ -42,6 +40,7 @@ stats_lock = Lock()
 stats = {
     'processed': 0,
     'updated': 0,
+    'updated_from_mtime': 0,
     'skipped_has_metadata': 0,
     'skipped_no_pattern': 0,
     'errors': 0
@@ -178,7 +177,7 @@ def set_metadata_datetime(file_path: str, creation_time: datetime, dry_run: bool
     # No suitable file type
     return False, "Unsupported file type"
 
-def process_file(file_path: str, dry_run: bool = False, verbose: bool = False) -> str:
+def process_file(file_path: str, dry_run: bool = False, verbose: bool = False, fallback_to_mtime: bool = False) -> str:
     """Process single file - check metadata and restore if needed"""
     global stats
     
@@ -195,6 +194,16 @@ def process_file(file_path: str, dry_run: bool = False, verbose: bool = False) -
         
         # Try to parse datetime from path
         parsed_datetime = parse_datetime_from_path(file_path)
+        fallback_used = False
+        
+        # If no pattern found and fallback is enabled, use mtime
+        if not parsed_datetime and fallback_to_mtime:
+            try:
+                mtime = os.path.getmtime(file_path)
+                parsed_datetime = datetime.fromtimestamp(mtime)
+                fallback_used = True
+            except (OSError, ValueError):
+                parsed_datetime = None
         
         if not parsed_datetime:
             with stats_lock:
@@ -210,6 +219,8 @@ def process_file(file_path: str, dry_run: bool = False, verbose: bool = False) -
             with stats_lock:
                 stats['processed'] += 1
                 stats['updated'] += 1
+                if fallback_used:
+                    stats['updated_from_mtime'] += 1
             
             file_ext = Path(file_path).suffix.lower()
             if file_ext in IMAGE_EXTENSIONS:
@@ -218,7 +229,9 @@ def process_file(file_path: str, dry_run: bool = False, verbose: bool = False) -
                 method = "Video Metadata"
             else:
                 method = "Unknown"
-            return f"{Fore.CYAN}[DRY RUN] Would set {file_path} -> {parsed_datetime} (via {method}){Style.RESET_ALL}"
+            
+            fallback_text = " [from mtime]" if fallback_used else ""
+            return f"{Fore.CYAN}[DRY RUN] Would set {file_path} -> {parsed_datetime} (via {method}){fallback_text}{Style.RESET_ALL}"
         else:
             success, method = set_metadata_datetime(file_path, parsed_datetime, dry_run)
             
@@ -226,11 +239,14 @@ def process_file(file_path: str, dry_run: bool = False, verbose: bool = False) -
                 stats['processed'] += 1
                 if success:
                     stats['updated'] += 1
+                    if fallback_used:
+                        stats['updated_from_mtime'] += 1
                 else:
                     stats['errors'] += 1
             
+            fallback_text = " [from mtime]" if fallback_used else ""
             if success:
-                return f"{Fore.GREEN}✓ UPDATED: {file_path} -> {parsed_datetime} (via {method}){Style.RESET_ALL}"
+                return f"{Fore.GREEN}✓ UPDATED: {file_path} -> {parsed_datetime} (via {method}){fallback_text}{Style.RESET_ALL}"
             else:
                 return f"{Fore.RED}✗ ERROR: Failed to update {file_path}{Style.RESET_ALL}"
                 
@@ -241,19 +257,15 @@ def process_file(file_path: str, dry_run: bool = False, verbose: bool = False) -
         
         return f"{Fore.RED}ERROR processing {file_path}: {e}{Style.RESET_ALL}"
 
-def find_media_files(directory: str) -> List[str]:
-    """Recursively find all media files in directory"""
+def filter_media_files(file_list: List[str]) -> List[str]:
+    """Filter list to only include supported media files"""
     media_files = []
     
-    print(f"{Fore.BLUE}Scanning directory: {directory}{Style.RESET_ALL}")
-    
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            file_path = os.path.join(root, file)
-            file_ext = Path(file_path).suffix.lower()
-            
-            if file_ext in SUPPORTED_EXTENSIONS:
-                media_files.append(file_path)
+    for file_path in file_list:
+        file_ext = Path(file_path).suffix.lower()
+        
+        if file_ext in SUPPORTED_EXTENSIONS:
+            media_files.append(file_path)
     
     return media_files
 
@@ -263,8 +275,8 @@ def main():
         description='Restore creation time metadata from file paths and names'
     )
     parser.add_argument(
-        'directory',
-        help='Directory to scan recursively for media files'
+        'file_list',
+        help='Path to file with list of files to process'
     )
     parser.add_argument(
         '--dry-run',
@@ -292,18 +304,41 @@ def main():
         action='store_true',
         help='Process only video files'
     )
+    parser.add_argument(
+        '--pattern',
+        help='Only process files containing specified pattern in path'
+    )
+    parser.add_argument(
+        '--fallback-to-mtime',
+        action='store_true',
+        help='Use file modification time if creation date cannot be parsed from path'
+    )
     
     args = parser.parse_args()
     
-    # Validate directory
-    if not os.path.isdir(args.directory):
-        print(f"{Fore.RED}Error: Directory '{args.directory}' does not exist{Style.RESET_ALL}")
+    # Validate file list exists
+    if not os.path.exists(args.file_list):
+        print(f"{Fore.RED}❌ File list not found: {args.file_list}{Style.RESET_ALL}")
         sys.exit(1)
     
-
+    # Read file list
+    print(f"📋 Reading list from: {args.file_list}")
+    file_list = read_file_list(args.file_list)
     
-    # Find media files
-    media_files = find_media_files(args.directory)
+    if not file_list:
+        print(f"{Fore.YELLOW}⚠️  File list is empty{Style.RESET_ALL}")
+        sys.exit(0)
+    
+    print(f"Found {len(file_list)} paths in list")
+    
+    # Filter by pattern if specified
+    if args.pattern:
+        original_count = len(file_list)
+        file_list = [f for f in file_list if args.pattern in f]
+        print(f"After pattern filtering '{args.pattern}': {len(file_list)} of {original_count}")
+    
+    # Filter to only media files
+    media_files = filter_media_files(file_list)
     
     # Filter by type if requested
     if args.image_only:
@@ -312,10 +347,10 @@ def main():
         media_files = [f for f in media_files if Path(f).suffix.lower() in VIDEO_EXTENSIONS]
     
     if not media_files:
-        print(f"{Fore.YELLOW}No media files found in directory{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}No media files found in list{Style.RESET_ALL}")
         sys.exit(0)
     
-    print(f"{Fore.BLUE}Found {len(media_files)} media files to process{Style.RESET_ALL}")
+    print(f"{Fore.BLUE}Processing {len(media_files)} media files{Style.RESET_ALL}")
     
     if args.dry_run:
         print(f"{Fore.CYAN}Running in DRY RUN mode - no changes will be made{Style.RESET_ALL}")
@@ -328,7 +363,7 @@ def main():
             # Parallel processing
             with ThreadPoolExecutor(max_workers=args.workers) as executor:
                 future_to_file = {
-                    executor.submit(process_file, file_path, args.dry_run, args.verbose): file_path 
+                    executor.submit(process_file, file_path, args.dry_run, args.verbose, args.fallback_to_mtime): file_path 
                     for file_path in media_files
                 }
                 
@@ -342,7 +377,7 @@ def main():
         else:
             # Sequential processing
             for file_path in media_files:
-                result = process_file(file_path, args.dry_run, args.verbose)
+                result = process_file(file_path, args.dry_run, args.verbose, args.fallback_to_mtime)
                 
                 if args.verbose and not result.startswith("skipped"):
                     print(result)
@@ -354,6 +389,8 @@ def main():
     print(f"\n{Fore.GREEN}Processing completed in {elapsed:.2f} seconds!{Style.RESET_ALL}")
     print(f"Files processed: {stats['processed']}")
     print(f"Files updated: {stats['updated']}")
+    if stats['updated_from_mtime'] > 0:
+        print(f"Files updated from mtime: {stats['updated_from_mtime']}")
     print(f"Files with existing metadata: {stats['skipped_has_metadata']}")
     print(f"Files with no date pattern: {stats['skipped_no_pattern']}")
     print(f"Errors: {stats['errors']}")
