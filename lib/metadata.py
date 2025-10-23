@@ -90,10 +90,22 @@ def set_video_metadata_datetime(file_path: str, creation_time: datetime, dry_run
         
     Returns:
         bool: True if successful, False otherwise
+        
+    Note:
+        Only works with formats that support metadata: MP4, MOV, AVI, MKV, WebM
+        Legacy formats like MPEG-1/MPEG-2 (.mpg, .mpeg) don't support creation_time metadata
     """
     try:
         if dry_run:
             return True
+            
+        # Check if format supports metadata
+        file_ext = Path(file_path).suffix.lower()
+        unsupported_formats = {'.mpg', '.mpeg', '.m2v', '.vob', '.dat'}
+        
+        if file_ext in unsupported_formats:
+            # Legacy MPEG formats don't support creation_time metadata
+            return False
             
         # Format datetime for ffmpeg (ISO 8601 format)
         time_str = creation_time.strftime('%Y-%m-%dT%H:%M:%S')
@@ -105,7 +117,9 @@ def set_video_metadata_datetime(file_path: str, creation_time: datetime, dry_run
         
         # Container paths
         container_input = f'/data/{filename}'
-        container_temp = f'/data/{filename}.tmp'
+        # Use same extension for temp file to maintain format compatibility
+        file_ext = Path(filename).suffix
+        container_temp = f'/data/{filename}_temp{file_ext}'
         
         # Use ffmpeg via Docker to set metadata without re-encoding
         cmd = [
@@ -114,14 +128,16 @@ def set_video_metadata_datetime(file_path: str, creation_time: datetime, dry_run
             'immich_tools',
             'sh', '-c',
             f'ffmpeg -i "{container_input}" -c copy '
-            f'-metadata creation_time="{time_str}" '
-            f'-metadata date="{time_str}" '
+            f'-map_metadata 0 '
+            f'-metadata "creation_time={time_str}" '
+            # f'-metadata date="{time_str}" '
             f'-y "{container_temp}" && '
             f'touch -r "{container_input}" "{container_temp}" && '
             f'mv "{container_temp}" "{container_input}"'
         ]
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        print(result.stderr)
         return result.returncode == 0
         
     except Exception:

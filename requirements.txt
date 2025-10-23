@@ -4,6 +4,4 @@ argparse
 colorama==0.4.6
 pillow==10.0.0
 tqdm==4.67.1
-rawpy==0.18.1
-numpy==1.24.3
 piexif==1.1.3

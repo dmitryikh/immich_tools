@@ -1,6 +1,8 @@
 # Project related
 test/
 tmp/
+*.db
+*.backup
 
 # Python
 __pycache__/

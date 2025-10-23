@@ -12,7 +12,7 @@ Supported patterns:
 - /path/2015/folder/2015-12-27 19-22-41.MP4 -> 2015-12-27 19:22:41
 
 Usage:
-python restore_metadata_from_path.py files_list.txt --pattern "Camera Uploads" --dry-run
+python assign_creation_time.py files_list.txt --pattern "Camera Uploads" --dry-run
 """
 
 import os

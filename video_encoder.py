@@ -9,17 +9,17 @@ Usage:
 
 import os
 import sys
-import shutil
 import subprocess
 import unicodedata
-import time
 import argparse
 import logging
-import tempfile
 from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from colorama import Fore, Style, init
+
+# Import local modules
+from lib.video_converter import encode_video_file, get_output_path
 
 # Инициализация colorama
 init()
@@ -138,175 +138,37 @@ def format_duration(seconds):
     else:
         return f"{minutes:02d}:{secs:02d}"
 
-def get_output_path(original_path, suffix="_encoded"):
-    """Generates output file path (adds suffix and changes extension to .mp4)"""
-    path_obj = Path(original_path)
-    # Create new name with suffix
-    new_name = f"{path_obj.stem}{suffix}.mp4"
-    output_path = path_obj.parent / new_name
-    return str(output_path)
 
-def build_ffmpeg_command(input_path, output_path):
-    """Builds FFmpeg command for encoding via Docker"""
-    # Get absolute paths
-    input_abs = os.path.abspath(input_path)
-    output_abs = os.path.abspath(output_path)
-    
-    # Determine directories for mounting
-    input_dir = os.path.dirname(input_abs)
-    output_dir = os.path.dirname(output_abs)
-    
-    # If directories are the same, mount one directory as workspace
-    if input_dir == output_dir:
-        # Create paths inside container
-        input_container_path = f"/workspace/{os.path.basename(input_abs)}"
-        output_container_path = f"/workspace/{os.path.basename(output_abs)}"
-        
-        cmd = [
-            'docker', 'run', '--rm',
-            '-v', f'{input_dir}:/workspace',  # Shared workspace directory
-            'linuxserver/ffmpeg:latest',
-            'ffmpeg',
-            '-i', input_container_path,
-            '-vf', 'scale=-2:720,fps=30',
-            '-c:v', 'libx264',
-            '-preset', 'fast',
-            '-crf', '22',
-            '-profile:v', 'high',
-            '-level', '3.1',
-            '-c:a', 'aac',
-            '-b:a', '160k',
-            '-ac', '2',
-            '-ar', '48000',
-            '-movflags', '+faststart',
-            '-map_metadata', '0',
-            '-y',  # Overwrite output file
-            output_container_path
-        ]
-    else:
-        # Create paths inside container
-        input_container_path = f"/input/{os.path.basename(input_abs)}"
-        output_container_path = f"/output/{os.path.basename(output_abs)}"
-        
-        cmd = [
-            'docker', 'run', '--rm',
-            '-v', f'{input_dir}:/input:ro',   # Input directory (read-only)
-            '-v', f'{output_dir}:/output',    # Output directory (read-write)
-            'linuxserver/ffmpeg:latest',
-            'ffmpeg',
-            '-i', input_container_path,
-            '-vf', 'scale=-2:720,fps=30',
-            '-c:v', 'libx264',
-            '-preset', 'fast',
-            '-crf', '22',
-            '-profile:v', 'high',
-            '-level', '3.1',
-            '-c:a', 'aac',
-            '-b:a', '160k',
-            '-ac', '2',
-            '-ar', '48000',
-            '-movflags', '+faststart',
-            '-map_metadata', '0',
-            '-y',  # Overwrite output file
-            output_container_path
-        ]
-    return cmd
 
 def encode_video(input_path, output_path, logger, dry_run=True):
-    """Encodes single video file with atomic write via temporary file"""
-    result = {
-        'input_path': input_path,
-        'output_path': output_path,
-        'success': False,
-        'error': None,
-        'original_size': 0,
-        'output_size': 0,
-        'duration': 0
-    }
+    """Encodes single video file - wrapper around lib.video_converter.encode_video_file"""
     
-    try:
-        # Get original file size
-        if os.path.exists(input_path):
-            result['original_size'] = os.path.getsize(input_path)
-        
-        if dry_run:
-            print(f"  {Fore.CYAN}[DRY-RUN]{Style.RESET_ALL} Encode: {input_path} -> {os.path.basename(output_path)}")
-            result['success'] = True
-            result['output_size'] = result['original_size'] * 0.6  # Estimated compression
-            
-            # Log dry-run operation
-            log_encoding_operation(
-                logger, input_path, output_path, True,
-                result['original_size'], result['output_size'], 0
-            )
-            return result
-        
-        # Create output directory if it doesn't exist
-        output_dir = os.path.dirname(output_path)
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # Create temporary file in the same directory as final file
-        temp_fd, temp_path = tempfile.mkstemp(
-            suffix='.mp4',
-            dir=output_dir,
-            prefix=f"{Path(output_path).stem}_"
+    # Handle dry-run with UI output
+    if dry_run:
+        print(f"  {Fore.CYAN}[DRY-RUN]{Style.RESET_ALL} Encode: {input_path} -> {os.path.basename(output_path)}")
+        result = encode_video_file(input_path, output_path, dry_run=True)
+        # Log dry-run operation
+        log_encoding_operation(
+            logger, input_path, output_path, True,
+            result['original_size'], result['output_size'], 0
         )
-        os.close(temp_fd)  # Close file descriptor
+        return result
+    
+    # Actual encoding
+    result = encode_video_file(input_path, output_path, dry_run=False)
+    
+    # Add UI feedback and logging for real encoding
+    if result['success']:
+        temp_size_str = format_file_size(result['output_size'])
+        print(f"  {Fore.GREEN}🔄{Style.RESET_ALL} Encoding completed: {temp_size_str}")
         
-        try:
-            # Build FFmpeg command with temporary file
-            cmd = build_ffmpeg_command(input_path, temp_path)
-            
-            # Start encoding
-            start_time = time.time()
-            process = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=3600  # Максимум 1 час на файл
-            )
-            
-            result['duration'] = time.time() - start_time
-            
-            if process.returncode == 0:
-                if os.path.exists(temp_path):
-                    # Atomically move temporary file to final location
-                    temp_size = os.path.getsize(temp_path)
-                    shutil.move(temp_path, output_path)
-                    result['output_size'] = os.path.getsize(output_path)
-                    result['success'] = True
-                    
-                    print(f"  {Fore.GREEN}🔄{Style.RESET_ALL} Atomic move: {os.path.basename(temp_path)} -> {os.path.basename(output_path)}")
-                    
-                    # Log successful encoding
-                    log_encoding_operation(logger, input_path, output_path, True, 
-                                         result['original_size'], result['output_size'], result['duration'])
-                    logger.info(f"ATOMIC_MOVE: {temp_path} -> {output_path} ({format_file_size(temp_size)})")
-                else:
-                    result['error'] = "Temporary file not created"
-                    log_encoding_operation(logger, input_path, output_path, False, 
-                                         result['original_size'], 0, result['duration'], result['error'])
-            else:
-                result['error'] = f"FFmpeg error: {process.stderr}"
-                log_encoding_operation(logger, input_path, output_path, False, 
-                                     result['original_size'], 0, result['duration'], result['error'])
-        
-        finally:
-            # Clean up temporary file if it remains
-            if os.path.exists(temp_path):
-                try:
-                    os.unlink(temp_path)
-                except OSError:
-                    pass  # Ignore deletion errors
-            
-    except subprocess.TimeoutExpired:
-        result['error'] = "Encoding timeout"
+        # Log successful encoding
+        log_encoding_operation(logger, input_path, output_path, True, 
+                             result['original_size'], result['output_size'], result['duration'])
+    else:
+        # Log failed encoding
         log_encoding_operation(logger, input_path, output_path, False, 
-                             result['original_size'], 0, result.get('duration', 0), result['error'])
-    except Exception as e:
-        result['error'] = str(e)
-        log_encoding_operation(logger, input_path, output_path, False, 
-                             result['original_size'], 0, result.get('duration', 0), result['error'])
+                             result['original_size'], 0, result['duration'], result['error'])
     
     return result
 

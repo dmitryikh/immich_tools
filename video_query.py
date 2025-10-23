@@ -328,9 +328,7 @@ def export_no_metadata_files(db_path, output_file, short_format=False):
             duration,
             bit_rate,
             width || 'x' || height as resolution,
-            codec_name,
-            camera_make,
-            camera_model
+            codec_name
         FROM media_files 
         WHERE creation_date IS NULL AND is_corrupted = 0
         ORDER BY media_type, file_size DESC
@@ -356,11 +354,11 @@ def export_no_metadata_files(db_path, output_file, short_format=False):
             f.write(f"# Found {len(results)} files\n")
             f.write(f"# Created: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write("#\n")
-            f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec | camera\n")
+            f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec\n")
             f.write("#" + "="*100 + "\n\n")
         
         for row in results:
-            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, camera_make, camera_model = row
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row
             
             total_size += file_size if file_size else 0
             if media_type == 'image':
@@ -377,9 +375,8 @@ def export_no_metadata_files(db_path, output_file, short_format=False):
                 duration_str = format_duration(duration) if duration else "N/A"
                 bitrate_str = format_bitrate(bit_rate)
                 codec_str = codec_name if codec_name else "N/A"
-                camera_info = f"{camera_make} {camera_model}".strip() if camera_make or camera_model else "N/A"
                 
-                f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution} | {codec_str} | {camera_info}\n")
+                f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution} | {codec_str}\n")
                 f.write(f"{file_path}\n\n")
         
         if not short_format:
@@ -405,17 +402,16 @@ def export_no_metadata_files(db_path, output_file, short_format=False):
     if image_examples:
         print(f"  {Fore.BLUE}Images:{Style.RESET_ALL}")
         for i, row in enumerate(image_examples):
-            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, camera_make, camera_model = row
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row
             size_str = format_file_size(file_size)
-            camera_info = f"{camera_make} {camera_model}".strip() if camera_make or camera_model else "No camera info"
-            print(f"    {i+1}. {file_name} ({size_str}, {resolution}, {camera_info})")
+            print(f"    {i+1}. {file_name} ({size_str}, {resolution})")
     
     # Show videos
     video_examples = [row for row in results if row[3] == 'video'][:3]
     if video_examples:
         print(f"  {Fore.MAGENTA}Videos:{Style.RESET_ALL}")
         for i, row in enumerate(video_examples):
-            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, camera_make, camera_model = row
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row
             size_str = format_file_size(file_size)
             duration_str = format_duration(duration)
             codec_str = codec_name if codec_name else "N/A"

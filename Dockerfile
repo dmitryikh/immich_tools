@@ -12,7 +12,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Рабочая директория
 WORKDIR /data
 
-# По умолчанию – запуск bash, чтобы можно было заходить вручную
-# Но также поддерживаем прямой вызов команд
-ENTRYPOINT ["/bin/bash", "-c"]
+# По умолчанию – запуск bash, но поддерживаем прямой вызов команд
 CMD ["bash"]
