@@ -59,17 +59,14 @@ def set_image_exif_datetime(file_path: str, creation_time: datetime, dry_run: bo
         # Container paths
         container_file = f'/data/{filename}'
         
-        # Use exiftool via Docker to set EXIF datetime tags
+        # Use exiftool directly to set EXIF datetime tags
         cmd = [
-            'docker', 'run', '--rm',
-            '-v', f'{input_dir}:/data',
-            'immich_tools',
             'exiftool', '-overwrite_original',
             f'-DateTimeOriginal={time_str}',
             f'-DateTimeDigitized={time_str}',
             f'-DateTime={time_str}',
             '-P',  # preserve file timestamps
-            container_file
+            file_path
         ]
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -110,30 +107,20 @@ def set_video_metadata_datetime(file_path: str, creation_time: datetime, dry_run
         # Format datetime for ffmpeg (ISO 8601 format)
         time_str = creation_time.strftime('%Y-%m-%dT%H:%M:%S')
         
-        # Get directory and filename
+        # Get absolute path and create temp file name
         file_path = os.path.abspath(file_path)
-        input_dir = os.path.dirname(file_path)
-        filename = os.path.basename(file_path)
+        file_ext = Path(file_path).suffix
+        temp_file = f'{file_path}_temp{file_ext}'
         
-        # Container paths
-        container_input = f'/data/{filename}'
-        # Use same extension for temp file to maintain format compatibility
-        file_ext = Path(filename).suffix
-        container_temp = f'/data/{filename}_temp{file_ext}'
-        
-        # Use ffmpeg via Docker to set metadata without re-encoding
+        # Use ffmpeg directly to set metadata without re-encoding
         cmd = [
-            'docker', 'run', '--rm',
-            '-v', f'{input_dir}:/data',
-            'immich_tools',
             'sh', '-c',
-            f'ffmpeg -i "{container_input}" -c copy '
+            f'ffmpeg -i "{file_path}" -c copy '
             f'-map_metadata 0 '
             f'-metadata "creation_time={time_str}" '
-            # f'-metadata date="{time_str}" '
-            f'-y "{container_temp}" && '
-            f'touch -r "{container_input}" "{container_temp}" && '
-            f'mv "{container_temp}" "{container_input}"'
+            f'-y "{temp_file}" && '
+            f'touch -r "{file_path}" "{temp_file}" && '
+            f'mv "{temp_file}" "{file_path}"'
         ]
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
@@ -155,21 +142,13 @@ def get_image_metadata(file_path: str) -> dict:
         dict: Dictionary with creation_date (ISO format) if found, empty dict otherwise
     """
     try:
-        # Get directory and filename
+        # Get absolute file path
         file_path = os.path.abspath(file_path)
-        input_dir = os.path.dirname(file_path)
-        filename = os.path.basename(file_path)
         
-        # Container paths
-        container_file = f'/data/{filename}'
-        
-        # Use exiftool via Docker to get comprehensive metadata
+        # Use exiftool directly to get comprehensive metadata
         cmd = [
-            'docker', 'run', '--rm',
-            '-v', f'{input_dir}:/data',
-            'immich_tools',
             'exiftool', '-json', '-DateTimeOriginal', '-CreateDate', '-CreationDate',
-            container_file
+            file_path
         ]
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
@@ -221,22 +200,14 @@ def get_video_metadata(file_path: str) -> dict:
         VideoNoStreamError: If no video stream is found in the file
         VideoMetadataError: For other video metadata related errors
     """
-    # Get directory and filename
+    # Get absolute file path
     file_path = os.path.abspath(file_path)
-    input_dir = os.path.dirname(file_path)
-    filename = os.path.basename(file_path)
     
-    # Container paths
-    container_file = f'/data/{filename}'
-    
-    # Use ffprobe via Docker to get video information
+    # Use ffprobe directly to get video information
     cmd = [
-        'docker', 'run', '--rm',
-        '-v', f'{input_dir}:/data',
-        'immich_tools',
         'ffprobe', '-v', 'quiet', '-print_format', 'json',
         '-show_format', '-show_streams', '-select_streams', 'v:0',
-        container_file
+        file_path
     ]
     
     try:

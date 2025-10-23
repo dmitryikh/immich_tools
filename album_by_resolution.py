@@ -21,8 +21,8 @@ import time
 from tqdm import tqdm
 from lib.immich import ImmichAPI
 
-# Colorama init
-init()
+# Initialize colorama with forced colors for container support
+init(autoreset=True, strip=False)
 
 class PhotoResolutionManager:
     """Class for managing photos by resolution"""

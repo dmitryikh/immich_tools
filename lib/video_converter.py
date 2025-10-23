@@ -15,23 +15,21 @@ from pathlib import Path
 
 
 def build_ffmpeg_command(input_path, output_path):
-    """Builds FFmpeg command for encoding via Docker"""
+    """Builds FFmpeg command for encoding directly (no Docker)"""
     # Get absolute paths
     input_abs = os.path.abspath(input_path)
     output_abs = os.path.abspath(output_path)
-    
-    # Determine directories for mounting
-    input_dir = os.path.dirname(input_abs)
-    output_dir = os.path.dirname(output_abs)
 
-    ffmpeg_ops = [
+    # Build direct ffmpeg command
+    cmd = [
+        'ffmpeg',
         '-hide_banner',
+        '-i', input_abs,
         '-vf', 'scale=\'min(1280,iw)\':-2,format=yuv420p',
         '-c:v', 'libx264',
         '-preset', 'fast',
         '-crf', '22',
         '-profile:v', 'high',
-        # '-level', '3.1',
         '-c:a', 'aac',
         '-b:a', '160k',
         '-ac', '2',
@@ -39,35 +37,9 @@ def build_ffmpeg_command(input_path, output_path):
         '-movflags', '+faststart',
         '-map_metadata', '0',
         '-y',  # Overwrite output file
+        output_abs
     ]
     
-    # If directories are the same, mount one directory as workspace
-    if input_dir == output_dir:
-        # Create paths inside container
-        input_container_path = f"/workspace/{os.path.basename(input_abs)}"
-        output_container_path = f"/workspace/{os.path.basename(output_abs)}"
-
-        
-        cmd = [
-            'docker', 'run', '--rm',
-            '-v', f'{input_dir}:/workspace',  # Shared workspace directory
-            'immich_tools',
-            'ffmpeg',
-            '-i', input_container_path,
-        ] + ffmpeg_ops + [output_container_path]
-    else:
-        # Create paths inside container
-        input_container_path = f"/input/{os.path.basename(input_abs)}"
-        output_container_path = f"/output/{os.path.basename(output_abs)}"
-        
-        cmd = [
-            'docker', 'run', '--rm',
-            '-v', f'{input_dir}:/input:ro',   # Input directory (read-only)
-            '-v', f'{output_dir}:/output',    # Output directory (read-write)
-            'immich_tools',
-            'ffmpeg',
-            '-i', input_container_path,
-        ] + ffmpeg_ops + [output_container_path]
     return cmd
 
 

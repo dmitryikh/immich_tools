@@ -28,8 +28,8 @@ from lib.utils import (
     get_output_path, log_conversion_operation
 )
 
-# Initialize colorama
-init()
+# Initialize colorama with forced colors for container support
+init(autoreset=True, strip=False)
 
 def convert_image_worker(input_path, output_path, quality=95, logger=None, dry_run=True):
     """Thread-safe worker function for converting single image file"""

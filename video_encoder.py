@@ -21,8 +21,8 @@ from colorama import Fore, Style, init
 # Import local modules
 from lib.video_converter import encode_video_file, get_output_path
 
-# Инициализация colorama
-init()
+# Initialize colorama with forced colors for container support
+init(autoreset=True, strip=False)
 
 def setup_logging(log_file="video_encoder.log", log_level=logging.INFO):
     """Sets up logging to file and console"""

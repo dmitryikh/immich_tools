@@ -34,8 +34,8 @@ from PIL.ExifTags import TAGS
 from lib.metadata import get_image_metadata, get_video_metadata, VideoMetadataError, VideoCorruptedError, VideoTimeoutError, VideoNoStreamError
 from lib.utils import VIDEO_EXTENSIONS, RAW_EXTENSIONS, IMAGE_EXTENSIONS, SUPPORTED_EXTENSIONS
 
-# Initialize colorama
-init()
+# Initialize colorama with forced colors for container support
+init(autoreset=True, strip=False)
 
 class MediaAnalyzer:
     """Class for media file analysis (videos and images)"""
