@@ -12,18 +12,13 @@ A set of command-line tools for managing bulk media files before or after they a
 
 ## Architecture
 
-All tools are now packaged in a single Docker container with embedded dependencies:
+All tools are packaged in a single Docker container with embedded dependencies:
 - **Python 3.12** with all required packages
 - **FFmpeg** for video processing
 - **ExifTool** for metadata manipulation
 - **RawTherapee** for RAW image processing
 - **ImageMagick** for image operations
 
-This approach provides:
-- ✅ **Zero setup** - no need to install dependencies locally
-- ✅ **High performance** - no Docker startup overhead between operations
-- ✅ **Consistency** - same environment everywhere
-- ✅ **Colored output** - proper terminal formatting in containers
 
 ## Installation
 

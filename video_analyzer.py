@@ -40,8 +40,9 @@ init(autoreset=True, strip=False)
 class MediaAnalyzer:
     """Class for media file analysis (videos and images)"""
     
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, skip_hash: bool = False):
         self.db_path = db_path
+        self.skip_hash = skip_hash
         self.db_lock = Lock()  # For thread-safe database operations
         self.init_database()
     
@@ -175,7 +176,9 @@ class MediaAnalyzer:
     def save_media_info(self, file_path: str, metadata: Dict):
         """Saves media file information (video or image) to database"""
         file_stats = os.stat(file_path)
-        file_hash = self.get_file_hash(file_path) if not metadata.get('is_corrupted') else None
+        file_hash = None
+        if not metadata.get('is_corrupted') and not self.skip_hash:
+            file_hash = self.get_file_hash(file_path)
         
         with self.db_lock:
             conn = sqlite3.connect(self.db_path)
@@ -343,6 +346,8 @@ class MediaAnalyzer:
         
         print(f"{Fore.GREEN}Found {len(media_files)} media files{Style.RESET_ALL}")
         print(f"{Fore.BLUE}Using {max_workers} threads for processing{Style.RESET_ALL}")
+        if self.skip_hash:
+            print(f"{Fore.YELLOW}MD5 hash calculation disabled for faster processing{Style.RESET_ALL}")
         
         # Statistics
         processed = 0
@@ -492,11 +497,16 @@ def main():
         default=4,
         help='Number of threads for parallel processing (default: 4)'
     )
+    parser.add_argument(
+        '--skip-hash',
+        action='store_true',
+        help='Skip MD5 hash calculation for faster processing'
+    )
     
     args = parser.parse_args()
     
     # Initialize analyzer
-    analyzer = MediaAnalyzer(args.database)
+    analyzer = MediaAnalyzer(args.database, skip_hash=args.skip_hash)
     
     if args.stats:
         # Show statistics
