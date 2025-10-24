@@ -314,6 +314,137 @@ def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50,
     if len(results) > 5:
         print(f"  ... and {len(results) - 5} more files")
 
+def export_files_with_suffix(db_path, output_file, suffix, short_format=False):
+    """Exports files with given suffix that have corresponding original files without suffix in same directory"""
+    import os
+    
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Get all files from database
+    query = '''
+        SELECT 
+            file_path,
+            file_name,
+            file_size,
+            media_type,
+            duration,
+            bit_rate,
+            width || 'x' || height as resolution,
+            codec_name
+        FROM media_files 
+        WHERE is_corrupted = 0
+        ORDER BY file_path
+    '''
+    
+    cursor.execute(query)
+    all_files = cursor.fetchall()
+    
+    # Build directory index for fast lookup
+    # Structure: {directory: {base_name_without_ext: [file_records]}}
+    dir_index = {}
+    
+    for file_record in all_files:
+        file_path = file_record[0]
+        dir_name = os.path.dirname(file_path)
+        file_name = os.path.basename(file_path)
+        name_without_ext = os.path.splitext(file_name)[0]
+        
+        if dir_name not in dir_index:
+            dir_index[dir_name] = {}
+        
+        if name_without_ext not in dir_index[dir_name]:
+            dir_index[dir_name][name_without_ext] = []
+        
+        dir_index[dir_name][name_without_ext].append(file_record)
+    
+    # Find files with suffix that have corresponding originals
+    suffix_files = []
+    
+    for dir_name, files_by_base in dir_index.items():
+        for base_name, file_records in files_by_base.items():
+            # Check if this base name ends with the suffix
+            if base_name.endswith(suffix):
+                # Get base name without suffix
+                original_base = base_name[:-len(suffix)]
+                
+                # Check if original exists in same directory
+                if original_base in files_by_base:
+                    # Found files with suffix that have corresponding originals
+                    for file_record in file_records:
+                        suffix_files.append((file_record, original_base))
+    
+    if not suffix_files:
+        print(f"{Fore.YELLOW}No files with suffix '{suffix}' found that have corresponding originals{Style.RESET_ALL}")
+        conn.close()
+        return
+    
+    # Write to file
+    with open(output_file, 'w', encoding='utf-8') as f:
+        total_size = 0
+        video_count = 0
+        image_count = 0
+        
+        if not short_format:
+            # Header for full format
+            f.write(f"# List of files with suffix '{suffix}' that have corresponding originals\n")
+            f.write(f"# Found {len(suffix_files)} files\n")
+            f.write(f"# Created: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("#\n")
+            f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec | original_base\n")
+            f.write("#" + "="*100 + "\n\n")
+        
+        for file_record, original_base in suffix_files:
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = file_record
+            
+            total_size += file_size if file_size else 0
+            if media_type == 'video':
+                video_count += 1
+            else:
+                image_count += 1
+            
+            if short_format:
+                # Short format: only file paths
+                f.write(f"{file_path}\n")
+            else:
+                # Full format: file path with metadata and original info
+                size_str = format_file_size(file_size)
+                duration_str = format_duration(duration) if duration else "N/A"
+                bitrate_str = format_bitrate(bit_rate)
+                codec_str = codec_name if codec_name else "N/A"
+                
+                f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution} | {codec_str} | original: {original_base}\n")
+                f.write(f"{file_path}\n\n")
+        
+        if not short_format:
+            # Summary statistics for full format
+            f.write("#" + "="*100 + "\n")
+            f.write(f"# SUMMARY:\n")
+            f.write(f"# Total files with suffix '{suffix}': {len(suffix_files)} (Videos: {video_count}, Images: {image_count})\n")
+            f.write(f"# Total size: {format_file_size(total_size)}\n")
+    
+    conn.close()
+    
+    # Output statistics to screen
+    print(f"\n{Fore.GREEN}✅ Files with suffix '{suffix}' exported to: {output_file}{Style.RESET_ALL}")
+    print(f"Files with suffix that have originals: {len(suffix_files)} (Videos: {video_count}, Images: {image_count})")
+    print(f"Format: {'Short (paths only)' if short_format else 'Full (with metadata)'}")
+    print(f"Total size: {format_file_size(total_size)}")
+    
+    # Show examples
+    print(f"\n{Fore.CYAN}Examples of files with suffix '{suffix}':{Style.RESET_ALL}")
+    
+    for i, (file_record, original_base) in enumerate(suffix_files[:5]):
+        file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = file_record
+        size_str = format_file_size(file_size)
+        dir_name = os.path.dirname(file_path)
+        
+        print(f"  {i+1}. {file_name} ({size_str}) -> original: {original_base}.*")
+        print(f"      Directory: {dir_name}")
+    
+    if len(suffix_files) > 5:
+        print(f"  ... and {len(suffix_files) - 5} more files")
+
 def export_no_metadata_files(db_path, output_file, short_format=False):
     """Exports files without creation_date metadata to text file"""
     conn = sqlite3.connect(db_path)
@@ -702,6 +833,17 @@ def main():
         help='Export files without creation_date metadata to text file'
     )
     parser.add_argument(
+        '--export-with-suffix',
+        metavar='FILE',
+        help='Export files with given suffix that have corresponding originals to text file'
+    )
+    parser.add_argument(
+        '--suffix',
+        metavar='SUFFIX',
+        default='_720p',
+        help='Suffix to search for (default: _720p)'
+    )
+    parser.add_argument(
         '--short', '-s',
         action='store_true',
         help='Export only file names (short format)'
@@ -740,6 +882,11 @@ def main():
     # Export files without metadata
     if args.export_no_metadata:
         export_no_metadata_files(args.database, args.export_no_metadata, args.short)
+        return
+    
+    # Export files with suffix
+    if args.export_with_suffix:
+        export_files_with_suffix(args.database, args.export_with_suffix, args.suffix, args.short)
         return
     
     # Execute queries

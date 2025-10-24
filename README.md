@@ -85,6 +85,9 @@ docker run --rm -v "/path/to/your/media:/data" immich_tools video_analyzer.py /d
 docker run --rm -v "/path/to/your/media:/data" immich_tools video_query.py --database /data/video_analysis.db --export-duplicates /data/duplicates_by_hash.txt --export-pattern 'Camera Uploads'
 
 docker run --rm -v "/path/to/your/media:/data" immich_tools video_query.py --database /data/video_analysis.db --export-list /data/high_quality_files.txt --export-min-bitrate 15 --export-min-size 50
+
+# Export files with specific suffix that have corresponding originals (e.g., transcoded versions)
+docker run --rm -v "/path/to/your/media:/data" immich_tools video_query.py --database /data/video_analysis.db --export-with-suffix /data/transcoded_files.txt --suffix "_720p"
 ```
 
 
