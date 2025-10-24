@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mass video encoding script using FFmpeg Docker container
+Mass video encoding script using FFmpeg
 Creates optimized video files with configurable suffix
 
 Usage:
@@ -61,10 +61,10 @@ def log_encoding_operation(logger, input_path, output_path, success, original_si
         logger.info(
             f"ENCODE_SUCCESS: {input_path} -> {output_path} | "
             f"Size: {format_file_size(original_size)} -> {format_file_size(output_size)} "
-            f"(-{compression_percent:.1f}%) | Duration: {format_duration(duration_seconds)} | Method: Docker"
+            f"(-{compression_percent:.1f}%) | Duration: {format_duration(duration_seconds)} | Method: ffmpeg"
         )
     else:
-        logger.error(f"ENCODE_FAILED: {input_path} -> {output_path} | Error: {error_msg} | Method: Docker")
+        logger.error(f"ENCODE_FAILED: {input_path} -> {output_path} | Error: {error_msg} | Method: ffmpeg")
 
 def read_file_list(file_path):
     """Reads list of files from text file"""
@@ -84,37 +84,6 @@ def read_file_list(file_path):
     except Exception as e:
         print(f"{Fore.RED}❌ Error reading file: {e}{Style.RESET_ALL}")
         return []
-
-def check_ffmpeg():
-    """Checks FFmpeg availability via Docker"""
-    try:
-        # First check Docker
-        result = subprocess.run(['docker', '--version'], 
-                              capture_output=True, text=True, timeout=10)
-        if result.returncode != 0:
-            print(f"{Fore.RED}❌ Docker not found{Style.RESET_ALL}")
-            return False
-        
-        # Check FFmpeg in Docker container
-        result = subprocess.run([
-            'docker', 'run', '--rm', 
-            'linuxserver/ffmpeg:latest', 
-            'ffmpeg', '-version'
-        ], capture_output=True, text=True, timeout=30)
-        
-        if result.returncode == 0:
-            print(f"{Fore.GREEN}✅ FFmpeg Docker container ready{Style.RESET_ALL}")
-            return True
-        else:
-            print(f"{Fore.YELLOW}⚠️ Downloading FFmpeg Docker image...{Style.RESET_ALL}")
-            # Try to pull the image
-            pull_result = subprocess.run([
-                'docker', 'pull', 'linuxserver/ffmpeg:latest'
-            ], capture_output=True, text=True, timeout=120)
-            return pull_result.returncode == 0
-            
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
 
 def format_file_size(size_bytes):
     """Formats file size in human readable format"""
@@ -285,13 +254,6 @@ def main():
     )
     
     args = parser.parse_args()
-    
-    # Check FFmpeg (via Docker)
-    if not args.dry_run and not check_ffmpeg():
-        print(f"{Fore.RED}❌ FFmpeg Docker container unavailable{Style.RESET_ALL}")
-        print("Install Docker: https://docs.docker.com/get-docker/")
-        print("Or pull FFmpeg image: docker pull linuxserver/ffmpeg:latest")
-        return 1
     
     # Check file list
     if not os.path.exists(args.file_list):
