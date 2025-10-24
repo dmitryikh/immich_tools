@@ -95,16 +95,24 @@ def write_export_file(output_file, file_list, export_type, short_format=False, *
                 f.write(f"# Criteria: files with suffix '{kwargs['suffix']}' that have corresponding originals\n")
             
             f.write("#\n")
-            f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec\n")
+            if kwargs.get('include_potential_dates'):
+                f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec | potential_creation_date\n")
+            else:
+                f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec\n")
             f.write("#" + "="*100 + "\n\n")
         
         for row in file_list:
             # Handle different record formats
-            if len(row) >= 8:  # Full record format
+            if len(row) >= 10 and kwargs.get('include_potential_dates'):
+                # Enhanced format with potential creation dates
+                file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, potential_date, date_source = row[:10]
+            elif len(row) >= 8:  # Full record format
                 file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row[:8]
+                potential_date = date_source = None
             elif len(row) >= 7:  # Video record format (no media_type)
                 file_path, file_name, file_size, bit_rate, duration, resolution, codec_name = row
                 media_type = 'video'  # Assume video for bitrate queries
+                potential_date = date_source = None
             else:
                 # Minimal format - extract what we can
                 file_path = row[0]
@@ -112,6 +120,7 @@ def write_export_file(output_file, file_list, export_type, short_format=False, *
                 file_size = row[2] if len(row) > 2 else None
                 media_type = 'unknown'
                 duration = bit_rate = resolution = codec_name = None
+                potential_date = date_source = None
             
             total_size += file_size if file_size else 0
             if media_type == 'video':
@@ -130,7 +139,14 @@ def write_export_file(output_file, file_list, export_type, short_format=False, *
                 codec_str = codec_name if codec_name else "N/A"
                 resolution_str = resolution if resolution else "N/A"
                 
-                f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution_str} | {codec_str}\n")
+                # Add potential creation date info if available
+                date_info = ""
+                if potential_date and date_source:
+                    date_info = f" | Potential date: {potential_date} [{date_source}]"
+                elif kwargs.get('include_potential_dates'):
+                    date_info = " | No potential date found"
+                
+                f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution_str} | {codec_str}{date_info}\n")
                 f.write(f"{file_path}\n\n")
         
         if not short_format:
@@ -569,6 +585,10 @@ def export_files_with_suffix(db_path, output_file, suffix, short_format=False):
 
 def export_no_metadata_files(db_path, output_file, short_format=False):
     """Exports files without creation_date metadata to text file"""
+    import os
+    from datetime import datetime
+    from lib.utils import parse_datetime_from_path
+    
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
@@ -598,44 +618,95 @@ def export_no_metadata_files(db_path, output_file, short_format=False):
     # Sort files by directory structure (subdirectories first, then lexicographically)
     results = sort_files_by_directory_depth(results)
     
-    # Use unified export function
-    write_export_file(output_file, results, "files without creation_date metadata", short_format)
+    # Enhance results with potential creation time information
+    enhanced_results = []
+    for row in results:
+        file_path = row[0]
+        potential_creation_time = None
+        creation_source = None
+        
+        # Try parsing from path
+        parsed_date = parse_datetime_from_path(file_path)
+        if parsed_date:
+            potential_creation_time = parsed_date.strftime('%Y-%m-%d %H:%M:%S')
+            creation_source = "from path"
+        else:
+            # Try mtime as fallback
+            try:
+                if os.path.exists(file_path):
+                    mtime = os.path.getmtime(file_path)
+                    mtime_date = datetime.fromtimestamp(mtime)
+                    potential_creation_time = mtime_date.strftime('%Y-%m-%d %H:%M:%S')
+                    creation_source = "from mtime"
+            except (OSError, ValueError):
+                potential_creation_time = None
+                creation_source = None
+        
+        # Add potential creation info to the row
+        enhanced_row = row + (potential_creation_time, creation_source)
+        enhanced_results.append(enhanced_row)
+    
+    # Use unified export function with enhanced data
+    write_export_file(output_file, enhanced_results, "files without creation_date metadata", 
+                     short_format, include_potential_dates=True)
     
     conn.close()
     
-    # Output statistics to screen
-    image_count = len([row for row in results if row[3] == 'image'])
-    video_count = len([row for row in results if row[3] == 'video'])
+    # Output statistics to screen with potential creation time info
+    image_count = len([row for row in enhanced_results if row[3] == 'image'])
+    video_count = len([row for row in enhanced_results if row[3] == 'video'])
     
     print(f"\n{Fore.GREEN}✅ No-metadata files list exported to: {output_file}{Style.RESET_ALL}")
-    print(f"Files without creation_date: {len(results)} (Images: {image_count}, Videos: {video_count})")
+    print(f"Files without creation_date: {len(enhanced_results)} (Images: {image_count}, Videos: {video_count})")
     print(f"Format: {'Short (paths only)' if short_format else 'Full (with metadata)'}")
-    print(f"Total size: {format_file_size(sum(row[2] for row in results if row[2]))}")
+    print(f"Total size: {format_file_size(sum(row[2] for row in enhanced_results if row[2]))}")
     
-    # Show examples by type
+    # Show examples by type with potential creation time
     print(f"\n{Fore.CYAN}Examples of files without metadata:{Style.RESET_ALL}")
     
     # Show images first
-    image_examples = [row for row in results if row[3] == 'image'][:3]
+    image_examples = [row for row in enhanced_results if row[3] == 'image'][:3]
     if image_examples:
         print(f"  {Fore.BLUE}Images:{Style.RESET_ALL}")
         for i, row in enumerate(image_examples):
-            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row[:8]
+            potential_date = row[8] if len(row) > 8 else None
+            date_source = row[9] if len(row) > 9 else None
+            
             size_str = format_file_size(file_size)
-            print(f"    {i+1}. {file_name} ({size_str}, {resolution})")
+            
+            # Show potential creation time from enhanced data
+            creation_info = ""
+            if potential_date and date_source:
+                creation_info = f", potential date: {potential_date} [{date_source}]"
+            else:
+                creation_info = ", no potential date found"
+            
+            print(f"    {i+1}. {file_name} ({size_str}, {resolution}{creation_info})")
     
     # Show videos
-    video_examples = [row for row in results if row[3] == 'video'][:3]
+    video_examples = [row for row in enhanced_results if row[3] == 'video'][:3]
     if video_examples:
         print(f"  {Fore.MAGENTA}Videos:{Style.RESET_ALL}")
         for i, row in enumerate(video_examples):
-            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row[:8]
+            potential_date = row[8] if len(row) > 8 else None
+            date_source = row[9] if len(row) > 9 else None
+            
             size_str = format_file_size(file_size)
             duration_str = format_duration(duration)
             codec_str = codec_name if codec_name else "N/A"
-            print(f"    {i+1}. {file_name} ({size_str}, {duration_str}, {codec_str})")
+            
+            # Show potential creation time from enhanced data
+            creation_info = ""
+            if potential_date and date_source:
+                creation_info = f", potential date: {potential_date} [{date_source}]"
+            else:
+                creation_info = ", no potential date found"
+            
+            print(f"    {i+1}. {file_name} ({size_str}, {duration_str}, {codec_str}{creation_info})")
     
-    remaining = len(results) - len(image_examples) - len(video_examples)
+    remaining = len(enhanced_results) - len(image_examples) - len(video_examples)
     if remaining > 0:
         print(f"  ... and {remaining} more files")
 

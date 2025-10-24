@@ -176,3 +176,93 @@ def sort_files_by_directory_depth(files_list):
         return (-dir_depth, dir_name, file_name)
     
     return sorted(files_list, key=sort_key)
+
+
+def parse_datetime_from_path(file_path: str):
+    """
+    Extract datetime from file path and filename using various patterns
+    
+    Supported patterns:
+    1. Year in directory: /path/2011/folder/ -> 2011-01-01 00:00:00
+    2. Year.Month in folder: /2013/2013.06.xx - folder/ -> 2013-06-01 00:00:00
+    3. Year.Month.Day in folder: /2013/2013.09.13-folder/ -> 2013-09-13 00:00:00
+    4. Full datetime in filename: 2015-12-27 19-22-41.MP4 -> 2015-12-27 19:22:41
+    5. Date in filename: 2018-03-10_21-30-06.JPG -> 2018-03-10 21:30:06
+    
+    Returns:
+        datetime object if pattern found, None otherwise
+    """
+    import re
+    from datetime import datetime
+    
+    # Pattern 4 & 5: Full datetime in filename
+    filename = os.path.basename(file_path)
+    
+    # Full datetime patterns in filename
+    datetime_patterns = [
+        # 2015-12-27 19-22-41.MP4
+        r'(\d{4})-(\d{2})-(\d{2})\s+(\d{2})-(\d{2})-(\d{2})',
+        # 2015-12-27_19-22-41.MP4  
+        r'(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})',
+        # 2015-12-27T19:22:41.MP4
+        r'(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})',
+        # 20151227_192241.MP4
+        r'(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})',
+        # 2015-12-27 19:22:41.MP4
+        r'(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})',
+    ]
+    
+    for pattern in datetime_patterns:
+        match = re.search(pattern, filename)
+        if match:
+            try:
+                groups = match.groups()
+                year = int(groups[0])
+                month = int(groups[1])
+                day = int(groups[2])
+                hour = int(groups[3])
+                minute = int(groups[4])
+                second = int(groups[5])
+                
+                return datetime(year, month, day, hour, minute, second)
+            except (ValueError, IndexError):
+                continue
+    
+    # Pattern 3: Date in folder name (2013.09.13)
+    path_parts = Path(file_path).parts
+    for part in path_parts:
+        # 2013.09.13-folder or 2013.09.13 - folder
+        match = re.search(r'(\d{4})\.(\d{2})\.(\d{2})', part)
+        if match:
+            try:
+                year = int(match.group(1))
+                month = int(match.group(2))
+                day = int(match.group(3))
+                return datetime(year, month, day, 0, 0, 0)
+            except ValueError:
+                continue
+    
+    # Pattern 2: Year.Month in folder name (2013.06.xx)
+    for part in path_parts:
+        # 2013.06.xx - folder
+        match = re.search(r'(\d{4})\.(\d{2})\.\w+', part)
+        if match:
+            try:
+                year = int(match.group(1))
+                month = int(match.group(2))
+                return datetime(year, month, 1, 0, 0, 0)
+            except ValueError:
+                continue
+    
+    # Pattern 1: Year in directory path
+    for part in path_parts:
+        # Simple 4-digit year
+        if re.match(r'^\d{4}$', part):
+            try:
+                year = int(part)
+                if 1900 <= year <= 2030:  # Reasonable year range
+                    return datetime(year, 1, 1, 0, 0, 0)
+            except ValueError:
+                continue
+    
+    return None
