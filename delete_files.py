@@ -11,9 +11,10 @@ import os
 import sys
 import argparse
 from colorama import Fore, Style, init
+from lib.utils import sort_files_by_directory_depth
 
-# Initialize colorama
-init()
+# Initialize colorama with forced colors for container support
+init(autoreset=True, strip=False)
 
 def read_file_list(file_path):
     """Reads file list from text file"""
@@ -78,6 +79,8 @@ def delete_files(file_list, dry_run=True):
     
     print(f"\nProcessing {len(file_list)} files:")
     print("-" * 80)
+
+    file_list = sort_files_by_directory_depth(file_list)
     
     for i, file_path in enumerate(file_list, 1):
         try:
@@ -89,10 +92,10 @@ def delete_files(file_list, dry_run=True):
             size_str = format_file_size(file_size)
             
             if dry_run:
-                print(f"{i:3}. {Fore.CYAN}PREVIEW{Style.RESET_ALL} [{size_str}]: {os.path.basename(file_path)}")
+                print(f"{i:3}. {Fore.CYAN}PREVIEW{Style.RESET_ALL} [{size_str}]: {os.path.basename(file_path)} {os.path.dirname(file_path)}")
             else:
                 os.remove(file_path)
-                print(f"{i:3}. {Fore.RED}DELETED{Style.RESET_ALL} [{size_str}]: {os.path.basename(file_path)}")
+                print(f"{i:3}. {Fore.RED}DELETED{Style.RESET_ALL} [{size_str}]: {os.path.basename(file_path)} {os.path.dirname(file_path)}")
                 total_freed += file_size
             
             success_count += 1

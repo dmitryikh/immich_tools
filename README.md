@@ -72,22 +72,26 @@ docker run --rm -v "/path/to/your/library:/data" immich_tools assign_creation_ti
 
 ### Collect data on video files in the directory (recursively)
 ```bash
-docker run --rm -v "/path/to/your/media:/data" immich_tools video_analyzer.py /data --database /data/video_analysis.db --workers 16
+docker run --rm -v "/path/to/your/media:/data" immich_tools media_analyzer.py /data --database /data/video_analysis.db --workers 16
 
 # Quick stats on already collected data
-docker run --rm -v "/path/to/your/media:/data" immich_tools video_analyzer.py /data --stats --database /data/video_analysis.db
+docker run --rm -v "/path/to/your/media:/data" immich_tools media_analyzer.py /data --stats --database /data/video_analysis.db
 ```
 
 ### Export lists of files with large bitrates and duplicates
 
 ```bash
-# Only files with 'Camera Uploads' in the path will be added to the list for deletion.
-docker run --rm -v "/path/to/your/media:/data" immich_tools video_query.py --database /data/video_analysis.db --export-duplicates /data/duplicates_by_hash.txt --export-pattern 'Camera Uploads'
+# Export files with high bitrate (≥15 Mbit/s)
+docker run --rm -v "/path/to/your/media:/data" immich_tools media_query.py --database /data/video_analysis.db --export-list /data/high_quality_files.txt --min-bitrate 15
 
-docker run --rm -v "/path/to/your/media:/data" immich_tools video_query.py --database /data/video_analysis.db --export-list /data/high_quality_files.txt --export-min-bitrate 15 --export-min-size 50
+# Export duplicate files with pattern filtering
+docker run --rm -v "/path/to/your/media:/data" immich_tools media_query.py --database /data/video_analysis.db --export-list /data/duplicates_by_hash.txt --export-duplicates --export-pattern 'Camera Uploads'
 
 # Export files with specific suffix that have corresponding originals (e.g., transcoded versions)
-docker run --rm -v "/path/to/your/media:/data" immich_tools video_query.py --database /data/video_analysis.db --export-with-suffix /data/transcoded_files.txt --suffix "_720p"
+docker run --rm -v "/path/to/your/media:/data" immich_tools media_query.py --database /data/video_analysis.db --export-list /data/transcoded_files.txt --suffix "_720p"
+
+# Export files without creation date metadata
+docker run --rm -v "/path/to/your/media:/data" immich_tools media_query.py --database /data/video_analysis.db --export-list /data/no_metadata_files.txt --export-no-metadata
 ```
 
 

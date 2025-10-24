@@ -5,25 +5,24 @@ Media Database Query Tool
 Utility for querying media file database (videos and images) with convenient formatting.
 
 Usage:
-python video_query.py --export-duplicates duplicates_by_hash.txt --export-pattern 'Camera Uploads' --duplicate-patterns 'Camera Uploads' 'copy' '_copy'
+python media_query.py --export-duplicates duplicates_by_hash.txt --export-pattern 'Camera Uploads' --duplicate-patterns 'Camera Uploads' 'copy' '_copy'
 
-python video_query.py --export-list high_quality_files.txt --export-min-bitrate 15 --export-min-size 50
+python media_query.py --export-list high_quality_files.txt --export-min-bitrate 15 --export-min-size 50
 
-python video_query.py --export-no-metadata files_without_creation_date.txt
+python media_query.py --export-no-metadata files_without_creation_date.txt
 """
 
 import sqlite3
 import argparse
 import datetime
-import hashlib
 import os
 from colorama import Fore, Style, init
 
 # Import from local library
-from lib.utils import sort_files_by_directory_depth
+from lib.utils import sort_files_by_directory_depth, RAW_EXTENSIONS
 
-# Инициализация colorama
-init()
+# Initialize colorama with forced colors for container support
+init(autoreset=True, strip=False)
 
 def format_file_size(bytes_size):
     """Formats file size in human readable format"""
@@ -66,6 +65,87 @@ def format_duration(duration):
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
     else:
         return f"{minutes:02d}:{seconds:02d}"
+
+def write_export_file(output_file, file_list, export_type, short_format=False, **kwargs):
+    """
+    Unified function to write export files with consistent formatting
+    
+    Args:
+        output_file: Output file path
+        file_list: List of file records
+        export_type: Type of export for header (e.g., "high bitrate files", "RAW files")
+        short_format: Whether to use short format (paths only)
+        **kwargs: Additional parameters for specific export types
+    """
+    with open(output_file, 'w', encoding='utf-8') as f:
+        total_size = 0
+        video_count = 0
+        image_count = 0
+        
+        if not short_format:
+            # Header for full format
+            f.write(f"# List of {export_type}\n")
+            f.write(f"# Found {len(file_list)} files\n")
+            f.write(f"# Created: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            
+            # Add specific criteria info
+            if 'min_bitrate' in kwargs:
+                f.write(f"# Criteria: bitrate ≥{kwargs['min_bitrate']} Mbit/s, size ≥{kwargs.get('min_size', 50)} MB\n")
+            elif 'suffix' in kwargs:
+                f.write(f"# Criteria: files with suffix '{kwargs['suffix']}' that have corresponding originals\n")
+            
+            f.write("#\n")
+            f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec\n")
+            f.write("#" + "="*100 + "\n\n")
+        
+        for row in file_list:
+            # Handle different record formats
+            if len(row) >= 8:  # Full record format
+                file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row[:8]
+            elif len(row) >= 7:  # Video record format (no media_type)
+                file_path, file_name, file_size, bit_rate, duration, resolution, codec_name = row
+                media_type = 'video'  # Assume video for bitrate queries
+            else:
+                # Minimal format - extract what we can
+                file_path = row[0]
+                file_name = os.path.basename(file_path)
+                file_size = row[2] if len(row) > 2 else None
+                media_type = 'unknown'
+                duration = bit_rate = resolution = codec_name = None
+            
+            total_size += file_size if file_size else 0
+            if media_type == 'video':
+                video_count += 1
+            elif media_type == 'image':
+                image_count += 1
+            
+            if short_format:
+                # Short format: only file paths
+                f.write(f"{file_path}\n")
+            else:
+                # Full format: file path with metadata
+                size_str = format_file_size(file_size)
+                duration_str = format_duration(duration) if duration else "N/A"
+                bitrate_str = format_bitrate(bit_rate) if bit_rate else "N/A"
+                codec_str = codec_name if codec_name else "N/A"
+                resolution_str = resolution if resolution else "N/A"
+                
+                f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution_str} | {codec_str}\n")
+                f.write(f"{file_path}\n\n")
+        
+        if not short_format:
+            # Summary statistics for full format
+            f.write("#" + "="*100 + "\n")
+            f.write(f"# SUMMARY:\n")
+            f.write(f"# Total files: {len(file_list)}")
+            if video_count > 0 or image_count > 0:
+                f.write(f" (Videos: {video_count}, Images: {image_count})")
+            f.write(f"\n# Total size: {format_file_size(total_size)}\n")
+            
+            # Add total duration for videos
+            total_duration = sum(row[4] if len(row) > 4 and row[4] else 0 for row in file_list)
+            if total_duration > 0:
+                f.write(f"# Total duration: {format_duration(total_duration)}\n")
 
 def query_largest_files(db_path, limit=20):
     """Shows the largest files"""
@@ -222,6 +302,77 @@ def query_longest_files(db_path, limit=20):
     
     conn.close()
 
+def export_raw_files(db_path, output_file, short_format=False):
+    """Exports RAW image files to text file"""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Build query to find RAW files using file extensions
+    raw_extensions_tuple = tuple(RAW_EXTENSIONS)
+    placeholders = ', '.join('?' * len(raw_extensions_tuple))
+    
+    query = f'''
+        SELECT 
+            file_path,
+            file_name,
+            file_size,
+            media_type,
+            duration,
+            bit_rate,
+            width || 'x' || height as resolution,
+            codec_name
+        FROM media_files 
+        WHERE is_corrupted = 0 
+          AND media_type = 'image'
+          AND LOWER(SUBSTR(file_path, -4)) IN ({placeholders})
+        ORDER BY file_path
+    '''
+    
+    cursor.execute(query, [ext.lower() for ext in raw_extensions_tuple])
+    results = cursor.fetchall()
+    
+    if not results:
+        print(f"{Fore.YELLOW}No RAW files found{Style.RESET_ALL}")
+        conn.close()
+        return
+    
+    # Sort files by directory structure (subdirectories first, then lexicographically)
+    results = sort_files_by_directory_depth(results)
+    
+    # Use unified export function
+    write_export_file(output_file, results, "RAW image files", short_format)
+    
+    conn.close()
+    
+    # Output statistics to screen
+    print(f"\n{Fore.GREEN}✅ RAW files list exported to: {output_file}{Style.RESET_ALL}")
+    print(f"RAW files found: {len(results)}")
+    print(f"Format: {'Short (paths only)' if short_format else 'Full (with metadata)'}")
+    print(f"Total size: {format_file_size(sum(row[2] for row in results if row[2]))}")
+    
+    # Show examples by extension
+    print(f"\n{Fore.CYAN}Examples of RAW files found:{Style.RESET_ALL}")
+    
+    # Group by extension for display
+    extensions_found = {}
+    for row in results:
+        file_path = row[0]
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext not in extensions_found:
+            extensions_found[ext] = []
+        extensions_found[ext].append(row)
+    
+    # Show examples for each extension
+    for ext, files in sorted(extensions_found.items()):
+        print(f"  {Fore.BLUE}{ext.upper()} files:{Style.RESET_ALL} {len(files)} found")
+        for i, row in enumerate(files[:2]):
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row
+            size_str = format_file_size(file_size)
+            print(f"    {i+1}. {file_name} ({size_str}, {resolution})")
+    
+    if len(results) > sum(len(files[:2]) for files in extensions_found.values()):
+        print(f"  ... and more files")
+
 def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50, short_format=False):
     """Exports list of files by given criteria to text file"""
     conn = sqlite3.connect(db_path)
@@ -259,46 +410,9 @@ def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50,
     # Sort files by directory structure (subdirectories first, then lexicographically)
     results = sort_files_by_directory_depth(results)
     
-    # Write to file
-    with open(output_file, 'w', encoding='utf-8') as f:
-        total_size = 0
-        total_duration = 0
-        
-        if not short_format:
-            # Header for full format
-            f.write(f"# List of video files with bitrate ≥{min_bitrate_mbps} Mbit/s and size ≥{min_size_mb} MB\n")
-            f.write(f"# Found {len(results)} files\n")
-            f.write(f"# Created: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write("#\n")
-            f.write("# Format: file_path | size | bitrate | duration | resolution | codec\n")
-            f.write("#" + "="*100 + "\n\n")
-        
-        for row in results:
-            file_path, file_name, file_size, bit_rate, duration, resolution, codec_name = row
-            
-            total_size += file_size if file_size else 0
-            total_duration += duration if duration else 0
-            
-            if short_format:
-                # Short format: only file paths
-                f.write(f"{file_path}\n")
-            else:
-                # Full format: file path with metadata
-                size_str = format_file_size(file_size)
-                bitrate_str = format_bitrate(bit_rate)
-                duration_str = format_duration(duration) if duration else "N/A"
-                codec_str = codec_name if codec_name else "N/A"
-                
-                f.write(f"# {size_str} | {bitrate_str} | {duration_str} | {resolution} | {codec_str}\n")
-                f.write(f"{file_path}\n\n")
-        
-        if not short_format:
-            # Summary statistics for full format
-            f.write("#" + "="*100 + "\n")
-            f.write(f"# SUMMARY:\n")
-            f.write(f"# Files: {len(results)}\n")
-            f.write(f"# Total size: {format_file_size(total_size)}\n")
-            f.write(f"# Total duration: {format_duration(total_duration)}\n")
+    # Use unified export function
+    write_export_file(output_file, results, f"video files with bitrate ≥{min_bitrate_mbps} Mbit/s and size ≥{min_size_mb} MB", 
+                      short_format, min_bitrate=min_bitrate_mbps, min_size=min_size_mb)
     
     conn.close()
     
@@ -322,7 +436,6 @@ def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50,
 
 def export_files_with_suffix(db_path, output_file, suffix, short_format=False):
     """Exports files with given suffix that have corresponding original files without suffix in same directory"""
-    import os
     
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -386,7 +499,9 @@ def export_files_with_suffix(db_path, output_file, suffix, short_format=False):
         return
     
     # Sort files using common sorting function
-    suffix_files = sort_files_by_directory_depth(suffix_files)    # Write to file
+    suffix_files = sort_files_by_directory_depth(suffix_files)
+    
+    # Write to file
     with open(output_file, 'w', encoding='utf-8') as f:
         total_size = 0
         video_count = 0
@@ -483,53 +598,15 @@ def export_no_metadata_files(db_path, output_file, short_format=False):
     # Sort files by directory structure (subdirectories first, then lexicographically)
     results = sort_files_by_directory_depth(results)
     
-    # Write to file
-    with open(output_file, 'w', encoding='utf-8') as f:
-        total_size = 0
-        image_count = 0
-        video_count = 0
-        
-        if not short_format:
-            # Header for full format
-            f.write(f"# List of files without creation_date metadata\n")
-            f.write(f"# Found {len(results)} files\n")
-            f.write(f"# Created: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write("#\n")
-            f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec\n")
-            f.write("#" + "="*100 + "\n\n")
-        
-        for row in results:
-            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row
-            
-            total_size += file_size if file_size else 0
-            if media_type == 'image':
-                image_count += 1
-            else:
-                video_count += 1
-            
-            if short_format:
-                # Short format: only file paths
-                f.write(f"{file_path}\n")
-            else:
-                # Full format: file path with metadata
-                size_str = format_file_size(file_size)
-                duration_str = format_duration(duration) if duration else "N/A"
-                bitrate_str = format_bitrate(bit_rate)
-                codec_str = codec_name if codec_name else "N/A"
-                
-                f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution} | {codec_str}\n")
-                f.write(f"{file_path}\n\n")
-        
-        if not short_format:
-            # Summary statistics for full format
-            f.write("#" + "="*100 + "\n")
-            f.write(f"# SUMMARY:\n")
-            f.write(f"# Total files: {len(results)} (Images: {image_count}, Videos: {video_count})\n")
-            f.write(f"# Total size: {format_file_size(total_size)}\n")
+    # Use unified export function
+    write_export_file(output_file, results, "files without creation_date metadata", short_format)
     
     conn.close()
     
     # Output statistics to screen
+    image_count = len([row for row in results if row[3] == 'image'])
+    video_count = len([row for row in results if row[3] == 'video'])
+    
     print(f"\n{Fore.GREEN}✅ No-metadata files list exported to: {output_file}{Style.RESET_ALL}")
     print(f"Files without creation_date: {len(results)} (Images: {image_count}, Videos: {video_count})")
     print(f"Format: {'Short (paths only)' if short_format else 'Full (with metadata)'}")
@@ -764,94 +841,41 @@ def main():
         help='Path to SQLite database (default: media_analysis.db)'
     )
     parser.add_argument(
-        '--largest', '-l',
-        type=int,
-        default=0,
-        metavar='N',
-        help='Show N largest files'
-    )
-    parser.add_argument(
-        '--high-bitrate', '-b',
-        type=int,
-        default=0,
-        metavar='N',
-        help='Show N files with high bitrate (≥10 Mbit/s)'
-    )
-    parser.add_argument(
-        '--longest', '-t',
-        type=int,
-        default=0,
-        metavar='N',
-        help='Show N longest files'
+        '--export-list', '-e',
+        metavar='FILE',
+        help='Export file list to text file (required for all export operations)'
     )
     parser.add_argument(
         '--min-bitrate',
         type=int,
-        default=10,
-        help='Minimum bitrate in Mbit/s for filter (default: 10)'
-    )
-    parser.add_argument(
-        '--all', '-a',
-        action='store_true',
-        help='Show all types of reports (top-20 for each)'
-    )
-    parser.add_argument(
-        '--export-list', '-e',
-        metavar='FILE',
-        help='Export file list to text file by given criteria'
-    )
-    parser.add_argument(
-        '--export-min-bitrate',
-        type=int,
-        default=15,
         metavar='MBPS',
-        help='Minimum bitrate for export in Mbit/s (default: 15)'
-    )
-    parser.add_argument(
-        '--export-min-size',
-        type=int,
-        default=50,
-        metavar='MB',
-        help='Minimum file size for export in MB (default: 50)'
-    )
-    parser.add_argument(
-        '--min-duplicates',
-        type=int,
-        default=2,
-        metavar='N',
-        help='Minimum number of duplicates in group (default: 2)'
-    )
-    parser.add_argument(
-        '--export-duplicates',
-        metavar='FILE',
-        help='Export duplicate list to text file'
-    )
-    parser.add_argument(
-        '--export-pattern',
-        metavar='PATTERN',
-        help='Filter duplicates by path pattern (e.g., "Camera Uploads")'
-    )
-    parser.add_argument(
-        '--duplicate-patterns',
-        metavar='PATTERN',
-        nargs='+',
-        help='Patterns that indicate duplicate files (e.g., "Camera Uploads" "copy" "_copy")'
-    )
-    parser.add_argument(
-        '--export-no-metadata',
-        metavar='FILE',
-        help='Export files without creation_date metadata to text file'
-    )
-    parser.add_argument(
-        '--export-with-suffix',
-        metavar='FILE',
-        help='Export files with given suffix that have corresponding originals to text file'
+        help='Export files with bitrate above given value in Mbit/s (for videos)'
     )
     parser.add_argument(
         '--suffix',
         metavar='SUFFIX',
-        default='_720p',
-        help='Suffix to search for (default: _720p)'
+        help='Export files with given suffix that have corresponding originals (e.g., _720p)'
+    )
+    parser.add_argument(
+        '--export-no-metadata',
+        action='store_true',
+        help='Export files without creation_date metadata'
+    )
+    parser.add_argument(
+        '--export-raw',
+        action='store_true',
+        help='Export RAW image files'
+    )
+    parser.add_argument(
+        '--export-duplicates',
+        action='store_true',
+        help='Export duplicate files'
+    )
+    parser.add_argument(
+        '--export-pattern',
+        metavar='PATTERN',
+        nargs='+',
+        help='Filter exports by path patterns (e.g., "Camera Uploads" "copy" "_copy")'
     )
     parser.add_argument(
         '--short', '-s',
@@ -879,44 +903,52 @@ def main():
         print(f"{Fore.RED}Database access error: {e}{Style.RESET_ALL}")
         return
     
-    # Export file list
-    if args.export_list:
-        export_files_list(args.database, args.export_list, args.export_min_bitrate, args.export_min_size, args.short)
-        return
-    
-    # Export duplicates
-    if args.export_duplicates:
-        export_duplicates_list(args.database, args.export_duplicates, args.export_pattern, args.short, args.duplicate_patterns)
-        return
-    
-    # Export files without metadata
-    if args.export_no_metadata:
-        export_no_metadata_files(args.database, args.export_no_metadata, args.short)
-        return
-    
-    # Export files with suffix
-    if args.export_with_suffix:
-        export_files_with_suffix(args.database, args.export_with_suffix, args.suffix, args.short)
-        return
-    
-    # Execute queries
-    if args.all:
+    # Check if export is requested
+    if not args.export_list:
+        # No export requested - show default reports
         query_largest_files(args.database, 20)
-        query_high_bitrate_files(args.database, args.min_bitrate, 20)
+        query_high_bitrate_files(args.database, args.min_bitrate or 10, 20)
         query_longest_files(args.database, 20)
-    else:
-        if args.largest:
-            query_largest_files(args.database, args.largest)
-        
-        if args.high_bitrate:
-            query_high_bitrate_files(args.database, args.min_bitrate, args.high_bitrate)
-        
-        if args.longest:
-            query_longest_files(args.database, args.longest)
-        
-        # If nothing selected, show top-10 largest
-        if not any([args.largest, args.high_bitrate, args.longest]):
-            query_largest_files(args.database, 10)
+        return
+    
+    # Export operations require --export-list to be specified
+    export_count = sum([
+        bool(args.min_bitrate),
+        bool(args.suffix),
+        args.export_no_metadata,
+        args.export_raw,
+        args.export_duplicates
+    ])
+    
+    if export_count == 0:
+        print(f"{Fore.RED}Error: --export-list specified but no export type selected{Style.RESET_ALL}")
+        print("Available export types:")
+        print("  --min-bitrate MBPS    Export files with high bitrate")
+        print("  --suffix SUFFIX       Export files with suffix")
+        print("  --export-no-metadata  Export files without metadata")
+        print("  --export-raw          Export RAW image files")
+        print("  --export-duplicates   Export duplicate files")
+        return
+    
+    if export_count > 1:
+        print(f"{Fore.RED}Error: Only one export type can be specified at a time{Style.RESET_ALL}")
+        return
+    
+    # Perform the requested export
+    if args.min_bitrate:
+        # Use default min size of 50MB for high bitrate export
+        export_files_list(args.database, args.export_list, args.min_bitrate, 50, args.short)
+    elif args.suffix:
+        export_files_with_suffix(args.database, args.export_list, args.suffix, args.short)
+    elif args.export_no_metadata:
+        export_no_metadata_files(args.database, args.export_list, args.short)
+    elif args.export_raw:
+        export_raw_files(args.database, args.export_list, args.short)
+    elif args.export_duplicates:
+        # Use first pattern for filtering, all patterns for duplicate detection
+        filter_pattern = args.export_pattern[0] if args.export_pattern else None
+        duplicate_patterns = args.export_pattern if args.export_pattern else None
+        export_duplicates_list(args.database, args.export_list, filter_pattern, args.short, duplicate_patterns)
 
 if __name__ == "__main__":
     main()

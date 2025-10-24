@@ -32,8 +32,8 @@ from tqdm import tqdm
 from lib.metadata import set_image_exif_datetime, set_video_metadata_datetime, get_image_metadata, get_video_metadata, VideoMetadataError
 from lib.utils import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, SUPPORTED_EXTENSIONS, read_file_list
 
-# Colorama init
-init()
+# Initialize colorama with forced colors for container support
+init(autoreset=True, strip=False)
 
 # Thread-safe counters
 stats_lock = Lock()

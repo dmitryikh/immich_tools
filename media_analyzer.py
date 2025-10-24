@@ -8,19 +8,16 @@ EXIF data and resolution for images) using ffprobe and PIL/Pillow
 and saves results to SQLite database.
 
 Usage:
-python video_analyzer.py test --database media_analysis.db --workers 16
+python media_analyzer.py test --database media_analysis.db --workers 16
 
-python video_analyzer.py test --stats
+python media_analyzer.py test --stats
 """
 
 import os
-import sys
 import argparse
 import sqlite3
-import json
-import subprocess
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List
 from datetime import datetime
 from colorama import Fore, Style, init
 from tqdm import tqdm

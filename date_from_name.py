@@ -23,8 +23,8 @@ import time
 from tqdm import tqdm
 from lib.immich import ImmichAPI
 
-# Colorama init
-init()
+# Initialize colorama with forced colors for container support
+init(autoreset=True, strip=False)
 
 def parse_datetime_from_filename(filename: str) -> Optional[datetime]:
     """

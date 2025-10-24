@@ -3,9 +3,8 @@
 Mass RAW photo conversion script using RawTherapee CLI with parallel processing
 Converts RAW images to high-quality JPEG while preserving resolution and all metadata
 
-Uses RawTherapee CLI via Docker for professional RAW processing with automatic metadata preservation.
+Uses RawTherapee CLI for professional RAW processing with automatic metadata preservation.
 Features parallel processing and real-time progress bars for efficient batch conversion.
-Requires immich_tools Docker image with RawTherapee CLI installed.
 
 Usage:
     python photo_converter.py --pattern ".RW2" --no-skip-existing --max-workers 8 --quality 85 --suffix ""  tmp/files_without_creation_date.txt
@@ -22,9 +21,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from colorama import Fore, Style, init
 from tqdm import tqdm
 
-from lib.raw_converter import convert_raw_image_rawtherapee, is_raw_file, check_rawtherapee_dependencies
+from lib.raw_converter import convert_raw_image_rawtherapee, is_raw_file
 from lib.utils import (
-    setup_logging, read_file_list, format_file_size, format_duration, 
+    setup_logging, read_file_list, format_file_size, 
     get_output_path, log_conversion_operation
 )
 
@@ -316,15 +315,6 @@ def main():
         return 1
     elif args.max_workers > 8:
         print(f"{Fore.YELLOW}⚠️  Warning: Using more than 8 workers may not improve performance{Style.RESET_ALL}")
-    
-    # Check dependencies
-    if not args.dry_run:
-        success, message = check_rawtherapee_dependencies()
-        if success:
-            print(f"{Fore.GREEN}✅ {message}{Style.RESET_ALL}")
-        else:
-            print(f"{Fore.RED}❌ {message}{Style.RESET_ALL}")
-            return 1
     
     # Check file list
     if not os.path.exists(args.file_list):

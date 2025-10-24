@@ -13,6 +13,12 @@ import time
 import logging
 from pathlib import Path
 
+# codec_name field
+OUTDATED_CODECS = ['mpeg2video', 'mjpeg', 'mpeg4', 'mpeg1video']
+
+# format_name field
+OUTDATED_FORMATS = ['mpeg', 'mpegts']
+
 
 def build_ffmpeg_command(input_path, output_path):
     """Builds FFmpeg command for encoding directly (no Docker)"""
