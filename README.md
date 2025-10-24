@@ -94,7 +94,7 @@ docker run --rm -v "/path/to/your/media:/data" immich_tools video_query.py --dat
 ### Delete duplicate video files
 ```bash
 # Be careful! This will do the real deletion! Use --dry-run first.
-docker run --rm -v "/path/to/your/media:/data" immich_tools delete_files.py /data/duplicates_by_hash.txt --pattern "Camera Uploads" --dry-run
+docker run -it --rm -v "/path/to/your/media:/data" immich_tools delete_files.py /data/duplicates_by_hash.txt --pattern "Camera Uploads" --dry-run
 ```
 
 

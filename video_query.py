@@ -379,7 +379,22 @@ def export_files_with_suffix(db_path, output_file, suffix, short_format=False):
         conn.close()
         return
     
-    # Write to file
+    # Sort files: subdirectories first (lexicographically), then files in parent directory
+    # This ensures proper ordering as requested: /media/A/*, /media/B/*, /media/*
+    def sort_key(item):
+        file_record, _ = item
+        file_path = file_record[0]
+        dir_name = os.path.dirname(file_path)
+        file_name = os.path.basename(file_path)
+        
+        # Count directory separators to determine depth
+        dir_depth = dir_name.count(os.sep) if dir_name else 0
+        
+        # Sort by: reverse depth (deeper directories first), then directory name, then filename
+        # Using negative depth to sort deeper directories first
+        return (-dir_depth, dir_name, file_name)
+    
+    suffix_files.sort(key=sort_key)    # Write to file
     with open(output_file, 'w', encoding='utf-8') as f:
         total_size = 0
         video_count = 0
