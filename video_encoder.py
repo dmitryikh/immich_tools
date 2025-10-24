@@ -13,13 +13,19 @@ import subprocess
 import unicodedata
 import argparse
 import logging
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from colorama import Fore, Style, init
 
 # Import local modules
-from lib.video_converter import encode_video_file, get_output_path
+from lib.video_converter import encode_video_file
+from lib.utils import (
+    setup_logging, read_file_list, format_file_size, get_output_path,
+    log_conversion_operation, load_database_file_paths, 
+    DatabaseProtectionError
+)
 
 # Initialize colorama with forced colors for container support
 init(autoreset=True, strip=False)
@@ -53,7 +59,7 @@ def setup_logging(log_file="video_encoder.log", log_level=logging.INFO):
     
     return logger
 
-def log_encoding_operation(logger, input_path, output_path, success, original_size=0, 
+def log_conversion_operation(logger, input_path, output_path, success, original_size=0, 
                          output_size=0, duration_seconds=0, error_msg=None):
     """Logs encoding operation"""
     if success:
@@ -107,8 +113,6 @@ def format_duration(seconds):
     else:
         return f"{minutes:02d}:{secs:02d}"
 
-
-
 def encode_video(input_path, output_path, logger, dry_run=True):
     """Encodes single video file - wrapper around lib.video_converter.encode_video_file"""
     
@@ -117,7 +121,7 @@ def encode_video(input_path, output_path, logger, dry_run=True):
         print(f"  {Fore.CYAN}[DRY-RUN]{Style.RESET_ALL} Encode: {input_path} -> {os.path.basename(output_path)}")
         result = encode_video_file(input_path, output_path, dry_run=True)
         # Log dry-run operation
-        log_encoding_operation(
+        log_conversion_operation(
             logger, input_path, output_path, True,
             result['original_size'], result['output_size'], 0
         )
@@ -132,18 +136,29 @@ def encode_video(input_path, output_path, logger, dry_run=True):
         print(f"  {Fore.GREEN}🔄{Style.RESET_ALL} Encoding completed: {temp_size_str}")
         
         # Log successful encoding
-        log_encoding_operation(logger, input_path, output_path, True, 
+        log_conversion_operation(logger, input_path, output_path, True, 
                              result['original_size'], result['output_size'], result['duration'])
     else:
         # Log failed encoding
-        log_encoding_operation(logger, input_path, output_path, False, 
+        log_conversion_operation(logger, input_path, output_path, False, 
                              result['original_size'], 0, result['duration'], result['error'])
     
     return result
 
 def process_file_list(file_list, logger, suffix="_encoded", 
-                     dry_run=True, skip_existing=True):
+                     dry_run=True, skip_existing=True, database_path=None):
     """Processes list of files"""
+    
+    # Load database file paths once for fast lookup
+    db_file_paths = set()
+    if database_path:
+        print(f"Loading file paths from database: {database_path}")
+        try:
+            db_file_paths = load_database_file_paths(database_path)
+            print(f"Loaded {len(db_file_paths)} file paths from database")
+        except (ValueError, sqlite3.Error) as e:
+            print(f"{Fore.RED}❌ Failed to load database: {e}{Style.RESET_ALL}")
+            return
     
     if dry_run:
         print(f"{Fore.YELLOW}🔍 PREVIEW MODE (files will NOT be processed){Style.RESET_ALL}")
@@ -152,10 +167,13 @@ def process_file_list(file_list, logger, suffix="_encoded",
     
     print(f"Suffix for encoded files: {suffix}")
     print(f"Skip existing files: {skip_existing}")
+    if database_path:
+        print(f"{Fore.RED}🛡️  Database protection: {database_path} (STRICT MODE){Style.RESET_ALL}")
     print("-" * 80)
     
     tasks = []
     skipped_count = 0
+    skipped_db_count = 0
     
     # Prepare tasks
     for file_path in file_list:
@@ -163,9 +181,15 @@ def process_file_list(file_list, logger, suffix="_encoded",
             print(f"{Fore.YELLOW}⚠️  Skipped (not found): {file_path}{Style.RESET_ALL}")
             continue
         
-        output_path = get_output_path(file_path, suffix)
+        output_path = get_output_path(file_path, suffix, preserve_extension=True)
         
-        # Check if we need to skip
+        # Check if output file exists in database first
+        if db_file_paths and output_path in db_file_paths:
+            message = f"Output file exists in database: {output_path}"
+            print(f"{Fore.RED}🛡️  STOPPED: {message}{Style.RESET_ALL}")
+            raise DatabaseProtectionError(message)
+        
+        # Check if we need to skip based on filesystem
         if skip_existing and os.path.exists(output_path):
             print(f"{Fore.BLUE}⏭️  Skipped (already exists): {os.path.basename(output_path)}{Style.RESET_ALL}")
             skipped_count += 1
@@ -177,7 +201,10 @@ def process_file_list(file_list, logger, suffix="_encoded",
         print(f"{Fore.YELLOW}❌ No files to process{Style.RESET_ALL}")
         return
     
-    print(f"\nProcessing {len(tasks)} files (skipped: {skipped_count}):")
+    skip_message = f"skipped: {skipped_count}"
+    if skipped_db_count > 0:
+        skip_message += f", protected: {skipped_db_count}"
+    print(f"\nProcessing {len(tasks)} files ({skip_message}):")
     
     # Statistics
     total_original_size = 0
@@ -252,6 +279,10 @@ def main():
         '--pattern',
         help='Only process files containing specified pattern in path'
     )
+    parser.add_argument(
+        '--database',
+        help='SQLite database path for protection checks'
+    )
     
     args = parser.parse_args()
     
@@ -290,8 +321,13 @@ def main():
             logger,
             suffix=args.suffix,
             dry_run=args.dry_run,
-            skip_existing=not args.no_skip_existing
+            skip_existing=not args.no_skip_existing,
+            database_path=args.database
         )
+    except DatabaseProtectionError as e:
+        print(f"\n{Fore.RED}🛡️  Database protection triggered: {e}{Style.RESET_ALL}")
+        logger.error(f"Database protection triggered: {e}")
+        return 1
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}⚠️  Processing interrupted by user{Style.RESET_ALL}")
         logger.warning("Processing interrupted by user")

@@ -16,6 +16,7 @@ import shutil
 import time
 import argparse
 import tempfile
+import sqlite3
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from colorama import Fore, Style, init
@@ -24,7 +25,8 @@ from tqdm import tqdm
 from lib.raw_converter import convert_raw_image_rawtherapee, is_raw_file
 from lib.utils import (
     setup_logging, read_file_list, format_file_size, 
-    get_output_path, log_conversion_operation
+    get_output_path, log_conversion_operation,
+    load_database_file_paths, DatabaseProtectionError
 )
 
 # Initialize colorama with forced colors for container support
@@ -128,9 +130,23 @@ def convert_image_worker(input_path, output_path, quality=95, logger=None, dry_r
     
     return result
 
+
 def process_file_list(file_list, logger, suffix="_jpg", quality=95,
-                     dry_run=True, skip_existing=True, pattern=None, max_workers=4):
+                     dry_run=True, skip_existing=True, pattern=None, max_workers=4, 
+                     database_path=None):
     """Processes list of files with parallel processing and progress bar"""
+    
+    # Load database file paths once for fast lookup
+    db_file_paths = set()
+    if database_path:
+        print(f"Loading file paths from database: {database_path}")
+        try:
+            db_file_paths = load_database_file_paths(database_path)
+            print(f"Loaded {len(db_file_paths)} file paths from database")
+        except (ValueError, sqlite3.Error) as e:
+            print(f"{Fore.RED}❌ Failed to load database: {e}{Style.RESET_ALL}")
+            return
+        print(f"Loaded {len(db_file_paths)} file paths from database")
     
     if dry_run:
         print(f"{Fore.YELLOW}🔍 PREVIEW MODE (files will NOT be processed){Style.RESET_ALL}")
@@ -141,12 +157,15 @@ def process_file_list(file_list, logger, suffix="_jpg", quality=95,
     print(f"JPEG Quality: {quality}")
     print(f"Skip existing files: {skip_existing}")
     print(f"Max workers: {max_workers}")
+    if database_path:
+        print(f"{Fore.RED}🛡️  Database protection: {database_path} (STRICT MODE){Style.RESET_ALL}")
     if pattern:
         print(f"Pattern filter: {pattern}")
     print("-" * 80)
     
     tasks = []
     skipped_count = 0
+    skipped_db_count = 0
     filtered_count = 0
     
     # Prepare tasks
@@ -168,7 +187,13 @@ def process_file_list(file_list, logger, suffix="_jpg", quality=95,
         
         output_path = get_output_path(file_path, suffix)
         
-        # Check if we need to skip
+        # Check if output file exists in database first
+        if db_file_paths and output_path in db_file_paths:
+            message = f"Output file exists in database: {output_path}"
+            print(f"{Fore.RED}🛡️  STOPPED: {message}{Style.RESET_ALL}")
+            raise DatabaseProtectionError(message)
+        
+        # Check if we need to skip based on filesystem
         if skip_existing and os.path.exists(output_path):
             print(f"{Fore.BLUE}⏭️  Skipped (already exists): {os.path.basename(output_path)}{Style.RESET_ALL}")
             skipped_count += 1
@@ -183,7 +208,10 @@ def process_file_list(file_list, logger, suffix="_jpg", quality=95,
         print(f"{Fore.YELLOW}❌ No files to process{Style.RESET_ALL}")
         return
     
-    print(f"\nProcessing {len(tasks)} files (skipped: {skipped_count}):")
+    skip_message = f"skipped: {skipped_count}"
+    if skipped_db_count > 0:
+        skip_message += f", protected: {skipped_db_count}"
+    print(f"\nProcessing {len(tasks)} files ({skip_message}):")
     
     # Statistics
     total_original_size = 0
@@ -301,6 +329,10 @@ def main():
         default=4,
         help='Maximum number of parallel workers (default: 4)'
     )
+    parser.add_argument(
+        '--database',
+        help='SQLite database path for protection checks'
+    )
     
     args = parser.parse_args()
     
@@ -354,8 +386,14 @@ def main():
             dry_run=args.dry_run,
             skip_existing=not args.no_skip_existing,
             pattern=args.pattern,
-            max_workers=args.max_workers
+            max_workers=args.max_workers,
+            database_path=args.database
         )
+    except DatabaseProtectionError as e:
+        print(f"\n{Fore.RED}🛡️  Database protection triggered: {e}{Style.RESET_ALL}")
+        if logger:
+            logger.error(f"Database protection triggered: {e}")
+        return 1
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}⚠️  Processing interrupted by user{Style.RESET_ALL}")
         if logger:

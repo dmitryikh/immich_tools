@@ -6,6 +6,7 @@ Common helper functions for file operations, formatting, and logging
 
 import os
 import logging
+import sqlite3
 import unicodedata
 from pathlib import Path
 from colorama import Fore, Style
@@ -101,11 +102,24 @@ def format_duration(seconds):
     secs = int(seconds % 60)
     return f"{minutes:02d}:{secs:02d}"
 
-def get_output_path(original_path, suffix="_jpg"):
-    """Generates output file path (adds suffix and changes extension to .jpg)"""
+def get_output_path(original_path, suffix="_jpg", preserve_extension=False):
+    """
+    Generates output file path with suffix
+    
+    Args:
+        original_path: Path to original file
+        suffix: Suffix to add to filename
+        preserve_extension: If True, keep original extension; if False, change to .jpg
+    """
     path_obj = Path(original_path)
-    # Create new name with suffix
-    new_name = f"{path_obj.stem}{suffix}.jpg"
+    
+    if preserve_extension:
+        # Keep original extension
+        new_name = f"{path_obj.stem}{suffix}{path_obj.suffix}"
+    else:
+        # Change extension to .jpg (for photo conversion)
+        new_name = f"{path_obj.stem}{suffix}.jpg"
+        
     output_path = path_obj.parent / new_name
     return str(output_path)
 
@@ -266,3 +280,42 @@ def parse_datetime_from_path(file_path: str):
                 continue
     
     return None
+
+
+def load_database_file_paths(db_path):
+    """
+    Loads all file paths from the database into a set for fast lookup
+    
+    Args:
+        db_path: Path to SQLite database
+        
+    Returns:
+        set: Set of all file paths in the database
+        
+    Raises:
+        ValueError: If database path is invalid or doesn't exist
+        sqlite3.Error: If database query fails
+    """
+    if not db_path:
+        raise ValueError("Database path cannot be None or empty")
+    
+    if not os.path.exists(db_path):
+        raise ValueError(f"Database file does not exist: {db_path}")
+    
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT file_path FROM media_files')
+        file_paths = {row[0] for row in cursor.fetchall()}
+        
+        conn.close()
+        return file_paths
+        
+    except sqlite3.Error as e:
+        raise sqlite3.Error(f"Failed to query database {db_path}: {e}")
+
+
+class DatabaseProtectionError(Exception):
+    """Raised when trying to overwrite a file that exists in the database"""
+    pass
