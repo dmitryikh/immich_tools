@@ -122,3 +122,57 @@ def log_conversion_operation(logger, input_path, output_path, success, original_
         )
     else:
         logger.error(f"CONVERT_FAILED: {input_path} -> {output_path} | Error: {error_msg}")
+
+def sort_files_by_directory_depth(files_list):
+    """
+    Sorts files by directory structure: subdirectories first (lexicographically), then files in parent directory
+    
+    This function implements a sorting algorithm that ensures proper file ordering:
+    1. Files in deeper directories come first
+    2. Within the same depth, directories are sorted lexicographically
+    3. Within the same directory, files are sorted lexicographically
+    
+    Example output order:
+    - /media/A/video1.mp4
+    - /media/A/video2.mp4  
+    - /media/B/video1.mp4
+    - /media/avideo.mp4
+    
+    Args:
+        files_list: List of tuples where first element contains file_path
+                   Supports various tuple formats:
+                   - (file_record, other_data) - where file_record[0] is file_path
+                   - ((file_record, ...), other_data) - where file_record[0] is file_path
+                   - Direct file records where item[0] is file_path
+    
+    Returns:
+        Sorted list using the same structure as input
+    """
+    def sort_key(item):
+        # Handle different input formats - extract file_path from first element
+        if isinstance(item, tuple) and len(item) >= 1:
+            if isinstance(item[0], (list, tuple)) and len(item[0]) >= 1:
+                # Format: ((file_record, ...), other_data) - used in export_files_with_suffix
+                file_path = item[0][0]
+            else:
+                # Format: (file_record, other_data) - used in other functions
+                # or: file_record directly
+                if isinstance(item[0], (list, tuple)) and len(item[0]) >= 1:
+                    file_path = item[0][0]
+                else:
+                    file_path = item[0]
+        else:
+            # Direct file record format or string
+            file_path = item[0] if isinstance(item, (list, tuple)) else str(item)
+        
+        dir_name = os.path.dirname(file_path)
+        file_name = os.path.basename(file_path)
+        
+        # Count directory separators to determine depth
+        dir_depth = dir_name.count(os.sep) if dir_name else 0
+        
+        # Sort by: reverse depth (deeper directories first), then directory name, then filename
+        # Using negative depth to sort deeper directories first
+        return (-dir_depth, dir_name, file_name)
+    
+    return sorted(files_list, key=sort_key)
