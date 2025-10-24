@@ -72,6 +72,7 @@ docker run --rm -v "/path/to/your/library:/data" immich_tools assign_creation_ti
 
 ### Collect data on video files in the directory (recursively)
 ```bash
+# --skip-hash can be added to significantly speed up the analysis in case you don't need duplicate finding.
 docker run --rm -v "/path/to/your/media:/data" immich_tools media_analyzer.py /data --database /data/video_analysis.db --workers 16
 
 # Quick stats on already collected data

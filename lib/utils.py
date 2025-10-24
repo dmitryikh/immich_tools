@@ -13,7 +13,7 @@ from colorama import Fore, Style
 # Media file extensions
 # Supported video formats
 VIDEO_EXTENSIONS = {
-    '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', 
+    '.mp4', '.avi', '.mkv', '.mov', '.mod', '.wmv', '.flv', '.webm', 
     '.m4v', '.3gp', '.ogv', '.f4v', '.asf', '.rm', '.rmvb',
     '.vob', '.ts', '.mts', '.m2ts', '.mpg', '.mpeg', '.m2v'
 }

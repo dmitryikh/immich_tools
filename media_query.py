@@ -20,6 +20,7 @@ from colorama import Fore, Style, init
 
 # Import from local library
 from lib.utils import sort_files_by_directory_depth, RAW_EXTENSIONS
+from lib.video_converter import OUTDATED_CODECS, OUTDATED_FORMATS
 
 # Initialize colorama with forced colors for container support
 init(autoreset=True, strip=False)
@@ -388,6 +389,135 @@ def export_raw_files(db_path, output_file, short_format=False):
     
     if len(results) > sum(len(files[:2]) for files in extensions_found.values()):
         print(f"  ... and more files")
+
+def export_old_video_files(db_path, output_file, short_format=False):
+    """Exports video files with outdated codecs or formats to text file"""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Build query to find videos with outdated codecs or formats
+    # We need to check both codec_name and format_name fields
+    outdated_codecs_tuple = tuple(OUTDATED_CODECS)
+    outdated_formats_tuple = tuple(OUTDATED_FORMATS)
+    
+    codecs_placeholders = ', '.join('?' * len(outdated_codecs_tuple))
+    formats_placeholders = ', '.join('?' * len(outdated_formats_tuple))
+    
+    query = f'''
+        SELECT 
+            file_path,
+            file_name,
+            file_size,
+            media_type,
+            duration,
+            bit_rate,
+            width || 'x' || height as resolution,
+            codec_name,
+            format_name
+        FROM media_files 
+        WHERE is_corrupted = 0 
+          AND media_type = 'video'
+          AND (
+            codec_name IN ({codecs_placeholders})
+            OR format_name IN ({formats_placeholders})
+          )
+        ORDER BY file_size DESC
+    '''
+    
+    # Combine parameters for both codec and format checks
+    query_params = list(outdated_codecs_tuple) + list(outdated_formats_tuple)
+    
+    cursor.execute(query, query_params)
+    results = cursor.fetchall()
+    
+    if not results:
+        print(f"{Fore.YELLOW}No video files with outdated codecs/formats found{Style.RESET_ALL}")
+        conn.close()
+        return
+    
+    # Sort files by directory structure (subdirectories first, then lexicographically)
+    results = sort_files_by_directory_depth(results)
+    
+    # Use unified export function (need to adjust for format_name field)
+    # Convert results to match expected format for write_export_file
+    converted_results = []
+    for row in results:
+        # Extract format_name and include it in the display
+        file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, format_name = row
+        
+        # Create a modified codec field that includes format info
+        codec_with_format = f"{codec_name or 'N/A'}"
+        if format_name and format_name in OUTDATED_FORMATS:
+            codec_with_format += f" (format: {format_name})"
+        
+        # Convert back to 8-field format expected by write_export_file
+        converted_row = (file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_with_format)
+        converted_results.append(converted_row)
+    
+    write_export_file(output_file, converted_results, "video files with outdated codecs/formats", short_format)
+    
+    conn.close()
+    
+    # Output statistics to screen
+    print(f"\n{Fore.GREEN}✅ Old video files list exported to: {output_file}{Style.RESET_ALL}")
+    print(f"Video files with outdated codecs/formats: {len(results)}")
+    print(f"Format: {'Short (paths only)' if short_format else 'Full (with metadata)'}")
+    print(f"Total size: {format_file_size(sum(row[2] for row in results if row[2]))}")
+    
+    # Show examples by codec/format type
+    print(f"\n{Fore.CYAN}Examples of old video files found:{Style.RESET_ALL}")
+    
+    # Group by codec and format for display
+    codecs_found = {}
+    formats_found = {}
+    
+    for row in results:
+        file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, format_name = row
+        
+        # Group by codec
+        if codec_name and codec_name in OUTDATED_CODECS:
+            if codec_name not in codecs_found:
+                codecs_found[codec_name] = []
+            codecs_found[codec_name].append(row)
+        
+        # Group by format 
+        if format_name and format_name in OUTDATED_FORMATS:
+            if format_name not in formats_found:
+                formats_found[format_name] = []
+            formats_found[format_name].append(row)
+    
+    # Show examples for each outdated codec
+    if codecs_found:
+        print(f"  {Fore.RED}Outdated Codecs:{Style.RESET_ALL}")
+        for codec, files in sorted(codecs_found.items()):
+            print(f"    {Fore.BLUE}{codec}:{Style.RESET_ALL} {len(files)} found")
+            for i, row in enumerate(files[:2]):
+                file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, format_name = row
+                size_str = format_file_size(file_size)
+                duration_str = format_duration(duration)
+                print(f"      {i+1}. {file_name} ({size_str}, {duration_str}, {resolution})")
+    
+    # Show examples for each outdated format
+    if formats_found:
+        print(f"  {Fore.MAGENTA}Outdated Formats:{Style.RESET_ALL}")
+        for format_name, files in sorted(formats_found.items()):
+            print(f"    {Fore.BLUE}{format_name}:{Style.RESET_ALL} {len(files)} found")
+            for i, row in enumerate(files[:2]):
+                file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, format_name = row
+                size_str = format_file_size(file_size)
+                duration_str = format_duration(duration)
+                codec_str = codec_name if codec_name else "N/A"
+                print(f"      {i+1}. {file_name} ({size_str}, {duration_str}, {resolution}, codec: {codec_str})")
+    
+    # Show total counts
+    total_codec_files = sum(len(files) for files in codecs_found.values())
+    total_format_files = sum(len(files) for files in formats_found.values())
+    
+    if total_codec_files > 0 or total_format_files > 0:
+        print(f"  Summary: {total_codec_files} files with outdated codecs, {total_format_files} files with outdated formats")
+        # Note: some files might have both outdated codec AND format, so total may be less than sum
+        if total_codec_files + total_format_files > len(results):
+            print(f"  (Some files have both outdated codec and format)")
 
 def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50, short_format=False):
     """Exports list of files by given criteria to text file"""
@@ -938,6 +1068,11 @@ def main():
         help='Export RAW image files'
     )
     parser.add_argument(
+        '--export-old-video',
+        action='store_true',
+        help='Export video files with outdated codecs/formats'
+    )
+    parser.add_argument(
         '--export-duplicates',
         action='store_true',
         help='Export duplicate files'
@@ -988,6 +1123,7 @@ def main():
         bool(args.suffix),
         args.export_no_metadata,
         args.export_raw,
+        args.export_old_video,
         args.export_duplicates
     ])
     
@@ -998,6 +1134,7 @@ def main():
         print("  --suffix SUFFIX       Export files with suffix")
         print("  --export-no-metadata  Export files without metadata")
         print("  --export-raw          Export RAW image files")
+        print("  --export-old-video    Export video files with outdated codecs/formats")
         print("  --export-duplicates   Export duplicate files")
         return
     
@@ -1015,6 +1152,8 @@ def main():
         export_no_metadata_files(args.database, args.export_list, args.short)
     elif args.export_raw:
         export_raw_files(args.database, args.export_list, args.short)
+    elif args.export_old_video:
+        export_old_video_files(args.database, args.export_list, args.short)
     elif args.export_duplicates:
         # Use first pattern for filtering, all patterns for duplicate detection
         filter_pattern = args.export_pattern[0] if args.export_pattern else None

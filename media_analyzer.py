@@ -11,6 +11,10 @@ Usage:
 python media_analyzer.py test --database media_analysis.db --workers 16
 
 python media_analyzer.py test --stats
+
+python media_analyzer.py /data --pattern "Camera Uploads" --workers 8
+
+python media_analyzer.py /data --pattern ".jpg" --skip-hash
 """
 
 import os
@@ -214,12 +218,15 @@ class MediaAnalyzer:
             conn.commit()
             conn.close()
     
-    def find_media_files(self, directory: str) -> List[str]:
+    def find_media_files(self, directory: str, pattern: Optional[str] = None) -> List[str]:
         """Recursively finds all media files (videos and images) in directory"""
         media_files = []
         skipped_system_files = 0
+        skipped_pattern_files = 0
         
         print(f"{Fore.BLUE}Searching for media files in {directory}...{Style.RESET_ALL}")
+        if pattern:
+            print(f"{Fore.BLUE}Pattern filter: '{pattern}'{Style.RESET_ALL}")
         
         for root, dirs, files in os.walk(directory):
             # Skip system directories
@@ -235,10 +242,18 @@ class MediaAnalyzer:
                 file_ext = Path(file).suffix.lower()
                 
                 if file_ext in SUPPORTED_EXTENSIONS:
+                    # Apply pattern filter if specified
+                    if pattern and pattern not in file_path:
+                        skipped_pattern_files += 1
+                        continue
+                    
                     media_files.append(file_path)
         
         if skipped_system_files > 0:
             print(f"{Fore.YELLOW}Skipped system files: {skipped_system_files}{Style.RESET_ALL}")
+        
+        if skipped_pattern_files > 0:
+            print(f"{Fore.YELLOW}Skipped files not matching pattern: {skipped_pattern_files}{Style.RESET_ALL}")
         
         return media_files
     
@@ -325,17 +340,20 @@ class MediaAnalyzer:
         
         return result
     
-    def analyze_directory(self, directory: str, force_reanalyze: bool = False, max_files: Optional[int] = None, max_workers: int = 4):
+    def analyze_directory(self, directory: str, force_reanalyze: bool = False, max_files: Optional[int] = None, max_workers: int = 4, pattern: Optional[str] = None):
         """Analyzes all media files (videos and images) in directory"""
         if not os.path.exists(directory):
             print(f"{Fore.RED}Directory does not exist: {directory}{Style.RESET_ALL}")
             return
         
         # Find all media files
-        media_files = self.find_media_files(directory)
+        media_files = self.find_media_files(directory, pattern)
         
         if not media_files:
-            print(f"{Fore.YELLOW}No media files found in {directory}{Style.RESET_ALL}")
+            if pattern:
+                print(f"{Fore.YELLOW}No media files found in {directory} matching pattern '{pattern}'{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.YELLOW}No media files found in {directory}{Style.RESET_ALL}")
             return
         
         if max_files:
@@ -499,6 +517,10 @@ def main():
         action='store_true',
         help='Skip MD5 hash calculation for faster processing'
     )
+    parser.add_argument(
+        '--pattern',
+        help='Only process files containing specified pattern in path'
+    )
     
     args = parser.parse_args()
     
@@ -535,7 +557,8 @@ def main():
             args.directory,
             force_reanalyze=args.force,
             max_files=args.max_files,
-            max_workers=args.workers
+            max_workers=args.workers,
+            pattern=args.pattern
         )
 
 if __name__ == "__main__":
