@@ -1,0 +1,13 @@
+[32mDatabase contains 52 records[0m[0m
+[0m
+[32m✅ RAW files list exported to: raw_short.txt[0m[0m
+[0mRAW files found: 9[0m
+[0mFormat: Short (paths only)[0m
+[0mTotal size: 450.0 B[0m
+[0m
+[36mExamples of RAW files found:[0m[0m
+[0m  [34m.DNG files:[0m 9 found[0m
+[0m    1. DSC_001.dng (50.0 B, None)[0m
+[0m    2. CR3_001.dng (50.0 B, None)[0m
+[0m  ... and more files[0m
+[0m

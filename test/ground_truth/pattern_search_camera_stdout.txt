@@ -1,0 +1,11 @@
+[32mDatabase contains 52 records[0m[0m
+[0m[31mError: --export-list specified but no export type selected[0m[0m
+[0mAvailable export types:[0m
+[0m  --min-bitrate MBPS    Export files with high bitrate[0m
+[0m  --suffix SUFFIX       Export files with suffix[0m
+[0m  --export-no-metadata  Export files without metadata[0m
+[0m  --export-raw          Export RAW image files[0m
+[0m  --export-old-video    Export video files with outdated codecs/formats[0m
+[0m  --export-duplicates   Export duplicate files[0m
+[0m  --export-dirs         Export directory structure analysis[0m
+[0m

@@ -1,0 +1,3 @@
+[32mDatabase contains 52 records[0m[0m
+[0m[33mNo files found with bitrate ≥1 Mbit/s and size ≥50 MB[0m[0m
+[0m

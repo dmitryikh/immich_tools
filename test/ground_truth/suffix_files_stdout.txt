@@ -1,0 +1,13 @@
+[32mDatabase contains 52 records[0m[0m
+[0m
+[32m✅ Files with suffix '_720p' exported to: suffix_files.txt[0m[0m
+[0mFiles with suffix that have originals: 2 (Videos: 1, Images: 1)[0m
+[0mFormat: Full (with metadata)[0m
+[0mTotal size: 3.0 KB[0m
+[0m
+[36mExamples of files with suffix '_720p':[0m[0m
+[0m  1. IMG_001_720p.jpg (1.0 KB) -> original: IMG_001.*[0m
+[0m      Directory: /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer[0m
+[0m  2. family_dinner_720p.mp4 (2.0 KB) -> original: family_dinner.*[0m
+[0m      Directory: /Users/dmitry/code/immich_tools/test/test_data/videos/2023/family[0m
+[0m

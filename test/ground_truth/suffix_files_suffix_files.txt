@@ -1,0 +1,17 @@
+# List of files with suffix '_720p' that have corresponding originals
+# Found 2 files
+# Created: 2025-10-26 09:51:39
+#
+# Format: file_path | type | size | duration | bitrate | resolution | codec | original_base
+#====================================================================================================
+
+# IMAGE | 1.0 KB | N/A | N/A | 100x100 | N/A | original: IMG_001
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/IMG_001_720p.jpg
+
+# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | original: family_dinner
+/Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/family_dinner_720p.mp4
+
+#====================================================================================================
+# SUMMARY:
+# Total files with suffix '_720p': 2 (Videos: 1, Images: 1)
+# Total size: 3.0 KB

@@ -1,0 +1,8 @@
+usage: media_query.py [-h] [--database DATABASE] [--export-list FILE]
+                      [--min-bitrate MBPS] [--suffix SUFFIX]
+                      [--export-no-metadata] [--export-raw]
+                      [--export-old-video] [--export-duplicates]
+                      [--export-dirs] [--console] [--min-dir-size MB]
+                      [--export-pattern PATTERN [PATTERN ...]] [--short]
+[0mmedia_query.py: error: unrecognized arguments: dirs_structure.txt
+[0m

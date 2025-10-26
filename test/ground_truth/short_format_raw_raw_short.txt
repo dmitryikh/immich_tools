@@ -1,0 +1,9 @@
+/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/DSC_001.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/CR3_001.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/CR3_002.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/IMG_001.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/IMG_002.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/NEF_001.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/NEF_002.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/IMG_001.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/IMG_002.dng

@@ -1,0 +1,18 @@
+# List of video files with outdated codecs/formats
+# Found 2 files
+# Created: 2025-10-26 09:51:39
+#
+# Format: file_path | type | size | duration | bitrate | resolution | codec
+#====================================================================================================
+
+# VIDEO | 14.6 KB | 00:01 | 119.3 kbit/s | 160x120 | mjpeg
+/Users/dmitry/code/immich_tools/test/test_data/videos/legacy/ancient_clip.avi
+
+# VIDEO | 14.6 KB | 00:01 | 119.3 kbit/s | 160x120 | mjpeg
+/Users/dmitry/code/immich_tools/test/test_data/videos/legacy/old_video.avi
+
+#====================================================================================================
+# SUMMARY:
+# Total files: 2 (Videos: 2, Images: 0)
+# Total size: 29.1 KB
+# Total duration: 00:02

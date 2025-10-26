@@ -1,5 +1,4 @@
 # Project related
-test/
 tmp/
 *.db
 *.backup

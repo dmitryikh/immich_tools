@@ -1,0 +1,20 @@
+
+[36m📊 Media file statistics[0m[0m
+[0m==================================================[0m
+[0mTotal files: 52[0m
+[0m  Videos: 16[0m
+[0m  Images: 36[0m
+[0mValid files: 48[0m
+[0mCorrupted files: 4[0m
+[0mTotal size: 0.00 GB[0m
+[0mVideo duration: 0.01 hours[0m
+[0m
+[33m🎥 Top video codecs:[0m[0m
+[0m  h264: 12 files[0m
+[0m  mjpeg: 2 files[0m
+[0m
+[33m📐 Top resolutions:[0m[0m
+[0m  100x100: 25 files[0m
+[0m  320x240: 12 files[0m
+[0m  160x120: 2 files[0m
+[0m

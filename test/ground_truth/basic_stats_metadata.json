@@ -1,0 +1,7 @@
+{
+  "test_name": "basic_stats",
+  "timestamp": "2025-10-26T09:51:39.292016",
+  "cmd": "/Users/dmitry/code/immich_tools/venv/bin/python media_analyzer.py test/test_data --database test/test_data/test_analysis.db --stats",
+  "returncode": 0,
+  "output_files": []
+}

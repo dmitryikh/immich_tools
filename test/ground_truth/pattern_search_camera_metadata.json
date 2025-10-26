@@ -1,0 +1,7 @@
+{
+  "test_name": "pattern_search_camera",
+  "timestamp": "2025-10-26T09:51:39.583026",
+  "cmd": "/Users/dmitry/code/immich_tools/venv/bin/python media_query.py --database test/test_data/test_analysis.db --export-list camera_files.txt --export-pattern camera",
+  "returncode": 0,
+  "output_files": []
+}

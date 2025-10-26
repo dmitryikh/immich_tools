@@ -1,0 +1,14 @@
+[32mDatabase contains 52 records[0m[0m
+[0m
+[32m✅ Old video files list exported to: old_videos.txt[0m[0m
+[0mVideo files with outdated codecs/formats: 2[0m
+[0mFormat: Full (with metadata)[0m
+[0mTotal size: 29.1 KB[0m
+[0m
+[36mExamples of old video files found:[0m[0m
+[0m  [31mOutdated Codecs:[0m[0m
+[0m    [34mmjpeg:[0m 2 found[0m
+[0m      1. ancient_clip.avi (14.6 KB, 00:01, 160x120)[0m
+[0m      2. old_video.avi (14.6 KB, 00:01, 160x120)[0m
+[0m  Summary: 2 files with outdated codecs, 0 files with outdated formats[0m
+[0m

@@ -1,0 +1,38 @@
+# List of RAW image files
+# Found 9 files
+# Created: 2025-10-26 09:51:39
+#
+# Format: file_path | type | size | duration | bitrate | resolution | codec
+#====================================================================================================
+
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A
+/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/DSC_001.dng
+
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/CR3_001.dng
+
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/CR3_002.dng
+
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/IMG_001.dng
+
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/IMG_002.dng
+
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/NEF_001.dng
+
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/NEF_002.dng
+
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/IMG_001.dng
+
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/IMG_002.dng
+
+#====================================================================================================
+# SUMMARY:
+# Total files: 9 (Videos: 0, Images: 9)
+# Total size: 450.0 B

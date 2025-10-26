@@ -1,0 +1,18 @@
+[32mDatabase contains 52 records[0m[0m
+[0m
+[32m✅ No-metadata files list exported to: no_metadata_files.txt[0m[0m
+[0mFiles without creation_date: 26 (Images: 12, Videos: 14)[0m
+[0mFormat: Full (with metadata)[0m
+[0mTotal size: 59.0 KB[0m
+[0m
+[36mExamples of files without metadata:[0m[0m
+[0m  [34mImages:[0m[0m
+[0m    1. DSC_001.dng (50.0 B, None, potential date: 2024-01-01 00:00:00 [from path])[0m
+[0m    2. CR3_001.dng (50.0 B, None, potential date: 2025-10-26 09:51:37 [from mtime])[0m
+[0m    3. CR3_002.dng (50.0 B, None, potential date: 2025-10-26 09:51:37 [from mtime])[0m
+[0m  [35mVideos:[0m[0m
+[0m    1. family_dinner.mp4 (2.0 KB, 00:01, h264, potential date: 2023-01-01 00:00:00 [from path])[0m
+[0m    2. kids_playing.mp4 (2.0 KB, 00:01, h264, potential date: 2023-01-01 00:00:00 [from path])[0m
+[0m    3. family_dinner.mp4 (2.4 KB, 00:02, h264, potential date: 2023-01-01 00:00:00 [from path])[0m
+[0m  ... and 20 more files[0m
+[0m

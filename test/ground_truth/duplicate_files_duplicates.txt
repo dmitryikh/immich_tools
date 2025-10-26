@@ -1,0 +1,192 @@
+# Duplicate list by hash
+# Found 8 duplicate groups
+# Created: 2025-10-26 09:51:39
+#
+#====================================================================================================
+
+# Group 1: 10 files total, 9 copies to process, hash: 98f717e32a252bcb...
+# Total size: 10.2 KB, wasted: 9.2 KB
+#
+# File classification:
+# ORIGINAL: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/IMG_001.jpg
+# COPY 1: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/IMG_001_720p.jpg
+# COPY 2: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/IMG_001_edited.jpg
+# COPY 3: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/IMG_002.jpg
+# COPY 4: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/IMG_002_final.jpg
+# COPY 5: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera1/IMG_001.jpg
+# COPY 6: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera1/IMG_001_cam1.jpg
+# COPY 7: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera1/IMG_002_cam1.jpg
+# COPY 8: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera2/IMG_001.jpg
+# COPY 9: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera2/IMG_001_cam2.jpg
+#
+# Files to delete (copies matching pattern):
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/IMG_001_720p.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/IMG_001_edited.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/IMG_002.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/IMG_002_final.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera1/IMG_001.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera1/IMG_001_cam1.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera1/IMG_002_cam1.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera2/IMG_001.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera2/IMG_001_cam2.jpg
+#
+# Group 2: 10 files total, 9 copies to process, hash: 6bb3bcde19558bf9...
+# Total size: 10.2 KB, wasted: 9.2 KB
+#
+# File classification:
+# ORIGINAL: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/photo1.jpg
+# COPY 1: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/photo1_thumb.jpg
+# COPY 2: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/photo1.jpg
+# COPY 3: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/photo_sub1.jpg
+# COPY 4: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder2/photo1.jpg
+# COPY 5: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder2/photo_sub2.jpg
+# COPY 6: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/IMG_004.jpg
+# COPY 7: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/IMG_004_HDR.jpg
+# COPY 8: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/day1/IMG_004.jpg
+# COPY 9: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/day1/IMG_005_day1.jpg
+#
+# Files to delete (copies matching pattern):
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/photo1_thumb.jpg
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/photo1.jpg
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/photo_sub1.jpg
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder2/photo1.jpg
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder2/photo_sub2.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/IMG_004.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/IMG_004_HDR.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/day1/IMG_004.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/day1/IMG_005_day1.jpg
+#
+# Group 3: 9 files total, 8 copies to process, hash: 9135dde7c419fcb4...
+# Total size: 450.0 B, wasted: 400.0 B
+#
+# File classification:
+# ORIGINAL: 50.0 B | N/A | N/A | None | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/DSC_001.dng
+# COPY 1: 50.0 B | N/A | N/A | None | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/IMG_001.dng
+# COPY 2: 50.0 B | N/A | N/A | None | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/IMG_002.dng
+# COPY 3: 50.0 B | N/A | N/A | None | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/CR3_001.dng
+# COPY 4: 50.0 B | N/A | N/A | None | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/CR3_002.dng
+# COPY 5: 50.0 B | N/A | N/A | None | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/IMG_001.dng
+# COPY 6: 50.0 B | N/A | N/A | None | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/IMG_002.dng
+# COPY 7: 50.0 B | N/A | N/A | None | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/NEF_001.dng
+# COPY 8: 50.0 B | N/A | N/A | None | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/NEF_002.dng
+#
+# Files to delete (copies matching pattern):
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/IMG_001.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/IMG_002.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/CR3_001.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/CR3_002.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/IMG_001.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/IMG_002.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/NEF_001.dng
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/NEF_002.dng
+#
+# Group 4: 8 files total, 7 copies to process, hash: e9b1db445a86b7c1...
+# Total size: 16.1 KB, wasted: 14.1 KB
+#
+# File classification:
+# ORIGINAL: 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/video1.mp4
+# COPY 1: 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/video_sub1.mp4
+# COPY 2: 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder2/video1.mp4
+# COPY 3: 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/video1.mp4
+# COPY 4: 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/video1_compressed.mp4
+# COPY 5: 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/family_dinner_720p.mp4
+# COPY 6: 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/kids/family_dinner.mp4
+# COPY 7: 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/kids/kids_playing.mp4
+#
+# Files to delete (copies matching pattern):
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/video_sub1.mp4
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder2/video1.mp4
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/video1.mp4
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/video1_compressed.mp4
+/Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/family_dinner_720p.mp4
+/Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/kids/family_dinner.mp4
+/Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/kids/kids_playing.mp4
+#
+# Group 5: 3 files total, 2 copies to process, hash: ffe2b1cda2b6cbff...
+# Total size: 2.4 KB, wasted: 1.6 KB
+#
+# File classification:
+# ORIGINAL: 823.0 B | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/mixed_content/no_meta.jpg
+# COPY 1: 823.0 B | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/no_metadata/no_date_1.jpg
+# COPY 2: 823.0 B | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/no_metadata/no_date_2.jpg
+#
+# Files to delete (copies matching pattern):
+/Users/dmitry/code/immich_tools/test/test_data/photos/no_metadata/no_date_1.jpg
+/Users/dmitry/code/immich_tools/test/test_data/photos/no_metadata/no_date_2.jpg
+#
+# Group 6: 2 files total, 1 copies to process, hash: 624e0fa4adddb135...
+# Total size: 29.1 KB, wasted: 14.6 KB
+#
+# File classification:
+# ORIGINAL: 14.6 KB | 00:01 | 119.3 kbit/s | 160x120 | mjpeg ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/videos/legacy/ancient_clip.avi
+# COPY 1: 14.6 KB | 00:01 | 119.3 kbit/s | 160x120 | mjpeg ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/videos/legacy/old_video.avi
+#
+# Files to delete (copies matching pattern):
+/Users/dmitry/code/immich_tools/test/test_data/videos/legacy/old_video.avi
+#
+# Group 7: 2 files total, 1 copies to process, hash: 445da3cf741d2ac7...
+# Total size: 4.7 KB, wasted: 2.4 KB
+#
+# File classification:
+# ORIGINAL: 2.4 KB | 00:02 | 9.7 kbit/s | 320x240 | h264 ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/family_dinner.mp4
+# COPY 1: 2.4 KB | 00:02 | 9.7 kbit/s | 320x240 | h264 ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/videos/2024/events/birthday.mp4
+#
+# Files to delete (copies matching pattern):
+/Users/dmitry/code/immich_tools/test/test_data/videos/2024/events/birthday.mp4
+#
+# Group 8: 2 files total, 1 copies to process, hash: 32fc7dca78360d7a...
+# Total size: 2.0 KB, wasted: 1.0 KB
+#
+# File classification:
+# ORIGINAL: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/winter/IMG_003.jpg
+# COPY 1: 1.0 KB | N/A | N/A | 100x100 | N/A ← MATCHES PATTERN
+# /Users/dmitry/code/immich_tools/test/test_data/photos/2023/winter/IMG_003_bw.jpg
+#
+# Files to delete (copies matching pattern):
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/winter/IMG_003_bw.jpg
+#

@@ -139,13 +139,41 @@ class MediaAnalyzer:
                         'format_long_name': f"{img.format} Image" if img.format else f"{file_ext[1:].upper()} Image"
                     })
             except Exception as pil_error:
-                # If PIL fails, we can still try to get metadata with exiftool
-                metadata['error_message'] = f"PIL error (continuing with exiftool): {str(pil_error)}"
+                # Check if this is a critical corruption that should mark the file as corrupted
+                error_str = str(pil_error).lower()
+                critical_errors = [
+                    'truncated file read',
+                    'broken data stream',
+                    'cannot identify image file',
+                    'image file is truncated',
+                    'decoder error',
+                    'corrupt jpeg data',
+                    'invalid image file'
+                ]
+                
+                # Check if this is a critical error that indicates file corruption
+                is_critical = any(critical_error in error_str for critical_error in critical_errors)
+                
+                if is_critical:
+                    # Mark as corrupted for critical PIL errors
+                    metadata['is_corrupted'] = True
+                    metadata['error_message'] = f"Critical image corruption: {str(pil_error)}"
+                else:
+                    # Non-critical PIL error, continue with exiftool
+                    metadata['error_message'] = f"PIL error (continuing with exiftool): {str(pil_error)}"
             
-            # Get creation date using exiftool via Docker (works for both RAW and regular images)
-            exif_metadata = get_image_metadata(file_path)
-            if 'creation_date' in exif_metadata:
-                metadata['creation_date'] = exif_metadata['creation_date']
+            # Only try exiftool if the file is not marked as corrupted
+            if not metadata.get('is_corrupted'):
+                # Get creation date using exiftool via Docker (works for both RAW and regular images)
+                try:
+                    exif_metadata = get_image_metadata(file_path)
+                    if 'creation_date' in exif_metadata:
+                        metadata['creation_date'] = exif_metadata['creation_date']
+                except Exception as exif_error:
+                    # If exiftool also fails and PIL already failed, mark as corrupted
+                    if metadata.get('error_message'):
+                        metadata['is_corrupted'] = True
+                        metadata['error_message'] += f" | Exiftool also failed: {str(exif_error)}"
             
             return metadata
                 
@@ -221,7 +249,7 @@ class MediaAnalyzer:
     def find_media_files(self, directory: str, pattern: Optional[str] = None) -> List[str]:
         """Recursively finds all media files (videos and images) in directory"""
         media_files = []
-        skipped_system_files = 0
+        skipped_nonmedia_files = 0
         skipped_pattern_files = 0
         
         print(f"{Fore.BLUE}Searching for media files in {directory}...{Style.RESET_ALL}")
@@ -235,11 +263,15 @@ class MediaAnalyzer:
             for file in files:
                 # Skip system files (starting with dot)
                 if file.startswith('.'):
-                    skipped_system_files += 1
+                    skipped_nonmedia_files += 1
                     continue
                 
                 file_path = os.path.join(root, file)
                 file_ext = Path(file).suffix.lower()
+
+                if file_ext not in SUPPORTED_EXTENSIONS:
+                    skipped_nonmedia_files += 1
+                    continue
                 
                 if file_ext in SUPPORTED_EXTENSIONS:
                     # Apply pattern filter if specified
@@ -249,8 +281,8 @@ class MediaAnalyzer:
                     
                     media_files.append(file_path)
         
-        if skipped_system_files > 0:
-            print(f"{Fore.YELLOW}Skipped system files: {skipped_system_files}{Style.RESET_ALL}")
+        if skipped_nonmedia_files > 0:
+            print(f"{Fore.YELLOW}Skipped non-media files: {skipped_nonmedia_files}{Style.RESET_ALL}")
         
         if skipped_pattern_files > 0:
             print(f"{Fore.YELLOW}Skipped files not matching pattern: {skipped_pattern_files}{Style.RESET_ALL}")

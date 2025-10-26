@@ -1,0 +1,8 @@
+[32mDatabase contains 52 records[0m[0m
+[0m
+[32m✅ Duplicate list exported to: duplicates.txt[0m[0m
+[0mDuplicate groups found: 8[0m
+[0mCopy files to process: 38[0m
+[0mFormat: Full (with metadata)[0m
+[0mSpace that can be freed: [31m52.4 KB[0m[0m
+[0m

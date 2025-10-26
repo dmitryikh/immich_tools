@@ -1,0 +1,8 @@
+# Test framework temporary files
+test_data/
+results/
+*.db
+*.log
+
+# Keep ground truth files
+!ground_truth/
