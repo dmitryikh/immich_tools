@@ -1,0 +1,16 @@
+[32mDatabase contains 52 records[0m[0m
+[0m
+[32m✅ Directory structure exported to: large_dirs.txt[0m[0m
+[0m
+[0mDirectories analyzed: 24[0m
+[0mDirectories exported: 24[0m
+[0mTotal size: 81.5 KB[0m
+[0m
+[36mLargest directories:[0m[0m
+[0m  1. [34m/Users/dmitry/code/immich_tools/test/test_data/[0m ([32m81.5 KB[0m, 48 files)[0m
+[0m  2. [34m/Users/dmitry/code/immich_tools/test/test_data/videos/[0m ([32m46.1 KB[0m, 9 files)[0m
+[0m  3. [34m/Users/dmitry/code/immich_tools/test/test_data/videos/legacy/[0m ([32m29.1 KB[0m, 2 files)[0m
+[0m  4. [34m/Users/dmitry/code/immich_tools/test/test_data/photos/[0m ([32m18.4 KB[0m, 27 files)[0m
+[0m  5. [34m/Users/dmitry/code/immich_tools/test/test_data/mixed_content/[0m ([32m17.0 KB[0m, 12 files)[0m
+[0m  ... and 19 more directories[0m
+[0m

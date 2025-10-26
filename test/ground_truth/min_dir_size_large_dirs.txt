@@ -1,0 +1,37 @@
+# Directory Structure Analysis
+# Created: 2024-01-15 10:30:00
+# Total directories analyzed: 24
+#
+# Format: [subdirs count, files breakdown, total size]
+# Legend: dir/ = directory, empty = no files, images/videos/files = media types
+#====================================================================================================
+
+/Users/dmitry/code/immich_tools/test/test_data/ [3 dirs, 34 images, 14 videos, 81.5 KB]
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/ [2 dirs, 7 images, 5 videos, 17.0 KB]
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/ [2 images, 2 videos, 6.1 KB]
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder2/ [2 images, 1 video, 4.1 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/ [4 dirs, 27 images, 18.4 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/ [2 dirs, 12 images, 12.3 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/ [2 dirs, 10 images, 10.2 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera1/ [3 images, 3.1 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera2/ [2 images, 2.0 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/2023/winter/ [2 images, 2.0 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/2024/ [1 dir, 5 images, 4.1 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/ [1 dir, 5 images, 4.1 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/day1/ [2 images, 2.0 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/no_metadata/ [2 images, 1.6 KB]
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/ [2 dirs, 8 images, 400.0 B]
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/ [3 images, 150.0 B]
+/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/ [3 images, 150.0 B]
+/Users/dmitry/code/immich_tools/test/test_data/videos/ [3 dirs, 9 videos, 46.1 KB]
+/Users/dmitry/code/immich_tools/test/test_data/videos/2023/ [1 dir, 5 videos, 11.1 KB]
+/Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/ [1 dir, 5 videos, 11.1 KB]
+/Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/kids/ [2 videos, 4.0 KB]
+/Users/dmitry/code/immich_tools/test/test_data/videos/2024/ [1 dir, 2 videos, 5.8 KB]
+/Users/dmitry/code/immich_tools/test/test_data/videos/2024/events/ [2 videos, 5.8 KB]
+/Users/dmitry/code/immich_tools/test/test_data/videos/legacy/ [2 videos, 29.1 KB]
+
+#====================================================================================================
+# SUMMARY:
+# Directories exported: 24
+# Total size: 282.4 KB

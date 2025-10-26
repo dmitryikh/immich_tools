@@ -1,31 +1,30 @@
 [32mDatabase contains 52 records[0m[0m
 [0m
 [36m📁 Directory Structure:[0m[0m
-[0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/[0m [3 dirs, [36m34 images[0m, [35m14 videos[0m, [32m81.5 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/mixed_content/[0m [2 dirs, [36m7 images[0m, [35m5 videos[0m, [32m17.0 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/[0m [[36m2 images[0m, [35m2 videos[0m, [32m6.1 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder2/[0m [[36m2 images[0m, [35m1 video[0m, [32m4.1 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/[0m [4 dirs, [36m27 images[0m, [32m18.4 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2023/[0m [2 dirs, [36m12 images[0m, [32m12.3 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/[0m [2 dirs, [36m10 images[0m, [32m10.2 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera1/[0m [[36m3 images[0m, [32m3.1 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera2/[0m [[36m2 images[0m, [32m2.0 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2023/winter/[0m [[36m2 images[0m, [32m2.0 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2024/[0m [1 dir, [36m5 images[0m, [32m4.1 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/[0m [1 dir, [36m5 images[0m, [32m4.1 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/day1/[0m [[36m2 images[0m, [32m2.0 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/no_metadata/[0m [[36m2 images[0m, [32m1.6 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/[0m [2 dirs, [36m8 images[0m, [32m400.0 B[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/[0m [[36m3 images[0m, [32m150.0 B[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/[0m [[36m3 images[0m, [32m150.0 B[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/[0m [3 dirs, [35m9 videos[0m, [32m46.1 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/2023/[0m [1 dir, [35m5 videos[0m, [32m11.1 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/[0m [1 dir, [35m5 videos[0m, [32m11.1 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/kids/[0m [[35m2 videos[0m, [32m4.0 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/2024/[0m [1 dir, [35m2 videos[0m, [32m5.8 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/2024/events/[0m [[35m2 videos[0m, [32m5.8 KB[0m][0m
-[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/legacy/[0m [[35m2 videos[0m, [32m29.1 KB[0m][0m
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/[0m [3 dirs, [36m34 images[0m, [35m14 videos[0m, [32m81.5 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/mixed_content/[0m [2 dirs, [36m7 images[0m, [35m5 videos[0m, [32m17.0 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/[0m [[36m2 images[0m, [35m2 videos[0m, [32m6.1 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder2/[0m [[36m2 images[0m, [35m1 video[0m, [32m4.1 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/[0m [4 dirs, [36m27 images[0m, [32m18.4 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2023/[0m [2 dirs, [36m12 images[0m, [32m12.3 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/[0m [2 dirs, [36m10 images[0m, [32m10.2 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera1/[0m [[36m3 images[0m, [32m3.1 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2023/summer/camera2/[0m [[36m2 images[0m, [32m2.0 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2023/winter/[0m [[36m2 images[0m, [32m2.0 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2024/[0m [1 dir, [36m5 images[0m, [32m4.1 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/[0m [1 dir, [36m5 images[0m, [32m4.1 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/day1/[0m [[36m2 images[0m, [32m2.0 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/no_metadata/[0m [[36m2 images[0m, [32m1.6 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/[0m [2 dirs, [36m8 images[0m, [32m400.0 B[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/[0m [[36m3 images[0m, [32m150.0 B[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/[0m [[36m3 images[0m, [32m150.0 B[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/[0m [3 dirs, [35m9 videos[0m, [32m46.1 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/2023/[0m [1 dir, [35m5 videos[0m, [32m11.1 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/[0m [1 dir, [35m5 videos[0m, [32m11.1 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/2023/family/kids/[0m [[35m2 videos[0m, [32m4.0 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/2024/[0m [1 dir, [35m2 videos[0m, [32m5.8 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/2024/events/[0m [[35m2 videos[0m, [32m5.8 KB[0m]
+[0m[34m/Users/dmitry/code/immich_tools/test/test_data/videos/legacy/[0m [[35m2 videos[0m, [32m29.1 KB[0m]
 [0mDirectories analyzed: 24[0m
 [0mTotal size: 81.5 KB[0m
 [0m

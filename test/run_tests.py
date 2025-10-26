@@ -212,7 +212,7 @@ class TestFramework:
             
             'export_dirs_text': {
                 'description': 'Export directory structure as text',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-dirs', 'dirs_structure.txt', '--now-time', test_time],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'dirs_structure.txt', '--export-dirs', '--now-time', test_time],
                 'output_files': ['dirs_structure.txt']
             },
             
@@ -236,7 +236,7 @@ class TestFramework:
             
             'min_dir_size': {
                 'description': 'Export directories with minimum size (1MB)',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-dirs', 'large_dirs.txt', '--now-time', test_time],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'large_dirs.txt', '--export-dirs', '--now-time', test_time],
                 'output_files': ['large_dirs.txt']
             }
         }
@@ -274,7 +274,6 @@ class TestFramework:
         # Save metadata
         metadata = {
             'test_name': test_name,
-            'timestamp': datetime.now().isoformat(),
             'cmd': result['cmd'],
             'returncode': result['returncode'],
             'output_files': list(output_files_content.keys())
@@ -369,6 +368,18 @@ class TestFramework:
         result = self.run_command(scenario['cmd'], test_name)
         if result is None:
             self.log(f"Failed to run test {test_name}", "ERROR")
+            return False
+        
+        # Check exit code - if non-zero, test fails immediately
+        if result['returncode'] != 0:
+            self.log(f"Command failed with exit code {result['returncode']}: {test_name}", "ERROR")
+            if result['stderr'].strip():
+                print(f"{Fore.RED}STDERR:{Style.RESET_ALL}")
+                print(f"{Fore.RED}{result['stderr']}{Style.RESET_ALL}")
+            
+            # Still save results for debugging
+            self.save_result(test_name, result, {})
+            self.failed_tests.append(test_name)
             return False
         
         # Collect output files

@@ -1,6 +1,5 @@
 {
   "test_name": "old_videos",
-  "timestamp": "2025-10-26T14:08:02.953967",
   "cmd": "/Users/dmitry/code/immich_tools/venv/bin/python media_query.py --database test/test_data/test_analysis.db --export-list old_videos.txt --export-old-video --now-time 2024-01-15 10:30:00",
   "returncode": 0,
   "output_files": [

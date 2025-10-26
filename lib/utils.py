@@ -10,6 +10,7 @@ import sqlite3
 import unicodedata
 from pathlib import Path
 from colorama import Fore, Style
+import re
 
 # Media file extensions
 # Supported video formats
@@ -319,3 +320,16 @@ def load_database_file_paths(db_path):
 class DatabaseProtectionError(Exception):
     """Raised when trying to overwrite a file that exists in the database"""
     pass
+
+ANSI_ESCAPE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+
+def strip_ansi(text: str) -> str:
+    return ANSI_ESCAPE.sub('', text)
+
+class StripAnsiWriter:
+    def __init__(self, f):
+        self.f = f
+    def write(self, text):
+        self.f.write(strip_ansi(text))
+    def flush(self):
+        self.f.flush()

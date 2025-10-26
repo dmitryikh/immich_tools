@@ -18,11 +18,12 @@ import sqlite3
 import argparse
 import datetime
 import os
+import sys
 from colorama import Fore, Style, init
 from collections import defaultdict
 
 # Import from local library
-from lib.utils import sort_files_by_directory_depth, RAW_EXTENSIONS
+from lib.utils import sort_files_by_directory_depth, RAW_EXTENSIONS, StripAnsiWriter
 from lib.video_converter import OUTDATED_CODECS, OUTDATED_FORMATS
 from lib.db import query_all_database
 
@@ -1123,9 +1124,16 @@ def export_directory_structure(db_path, output_file, console_output=False, curre
     # Get all directories sorted by path depth and name
     all_dirs = sorted(dir_tree.keys(), key=lambda x: (x.count(os.sep), x))
     
-    
-    # Function to display directory tree in console with colors
-    def print_directory_tree(dir_path, depth=0):
+    # Function to display directory tree (unified for console and file output)
+    def display_directory_tree(dir_path, output_file, depth=0):
+        """
+        Unified function to display directory tree
+        
+        Args:
+            dir_path: Directory path to display
+            depth: Nesting depth (for future indentation if needed)
+            output_file: File object to write to (None for console output)
+        """
         nonlocal exported_count, total_size_all
         
         # Calculate stats
@@ -1152,16 +1160,30 @@ def export_directory_structure(db_path, output_file, console_output=False, curre
         # Build file type breakdown for recursive stats
         type_parts = []
         if recursive_stats['images'] > 0:
-            type_parts.append(f"{recursive_stats['images']} image{'s' if recursive_stats['images'] != 1 else ''}")
+            count = recursive_stats['images']
+            label = f"{count} image{'s' if count != 1 else ''}"
+            type_parts.append(f"{Fore.CYAN}{label}{Style.RESET_ALL}")
+                
         if recursive_stats['videos'] > 0:
-            type_parts.append(f"{recursive_stats['videos']} video{'s' if recursive_stats['videos'] != 1 else ''}")
+            count = recursive_stats['videos']
+            label = f"{count} video{'s' if count != 1 else ''}"
+            type_parts.append(f"{Fore.MAGENTA}{label}{Style.RESET_ALL}")
+                
         if recursive_stats['other_files'] > 0:
-            type_parts.append(f"{recursive_stats['other_files']} file{'s' if recursive_stats['other_files'] != 1 else ''}")
+            count = recursive_stats['other_files']
+            label = f"{count} file{'s' if count != 1 else ''}"
+            type_parts.append(f"{Fore.YELLOW}{label}{Style.RESET_ALL}")
         
-        # Format size
+        # Format size with colors
         size_str = format_file_size(total_size)
+        if total_size > 1_000_000_000:  # > 1GB
+            colored_size = f"{Fore.RED}{size_str}{Style.RESET_ALL}"
+        elif total_size > 100_000_000:  # > 100MB
+            colored_size = f"{Fore.YELLOW}{size_str}{Style.RESET_ALL}"
+        else:
+            colored_size = f"{Fore.GREEN}{size_str}{Style.RESET_ALL}"
         
-        # Build description with colors
+        # Build description
         if total_files == 0:
             desc = f"{Fore.LIGHTBLACK_EX}[empty]{Style.RESET_ALL}"
         else:
@@ -1169,106 +1191,20 @@ def export_directory_structure(db_path, output_file, console_output=False, curre
             if subdirs_count > 0:
                 parts.append(f"{subdirs_count} dir{'s' if subdirs_count != 1 else ''}")
             
-            # Show file breakdown with colors
-            colored_type_parts = []
-            if recursive_stats['images'] > 0:
-                colored_type_parts.append(f"{Fore.CYAN}{recursive_stats['images']} image{'s' if recursive_stats['images'] != 1 else ''}{Style.RESET_ALL}")
-            if recursive_stats['videos'] > 0:
-                colored_type_parts.append(f"{Fore.MAGENTA}{recursive_stats['videos']} video{'s' if recursive_stats['videos'] != 1 else ''}{Style.RESET_ALL}")
-            if recursive_stats['other_files'] > 0:
-                colored_type_parts.append(f"{Fore.YELLOW}{recursive_stats['other_files']} file{'s' if recursive_stats['other_files'] != 1 else ''}{Style.RESET_ALL}")
-            
-            parts.extend(colored_type_parts)
-            
-            # Color the size
-            if total_size > 1_000_000_000:  # > 1GB
-                colored_size = f"{Fore.RED}{size_str}{Style.RESET_ALL}"
-            elif total_size > 100_000_000:  # > 100MB
-                colored_size = f"{Fore.YELLOW}{size_str}{Style.RESET_ALL}"
-            else:
-                colored_size = f"{Fore.GREEN}{size_str}{Style.RESET_ALL}"
-            
+            parts.extend(type_parts)
             parts.append(colored_size)
             desc = f"[{', '.join(parts)}]"
         
-        # Print directory entry with colors
-        display_path = dir_path + "/" if dir_path else "<root>/"
-        print(f"{Fore.BLUE}{display_path}{Style.RESET_ALL} {desc}")
-        
-        # Recursively process subdirectories in sorted order
-        subdirs = sorted(dir_tree[dir_path]['subdirs'])
-        for subdir in subdirs:
-            print_directory_tree(subdir, depth + 1)
+        # Format directory path with colors
+        display_path = dir_path + "/"
+        colored_path = f"{Fore.BLUE}{display_path}{Style.RESET_ALL}"
 
-    # Function to recursively display directory tree
-    def write_directory_tree(dir_path, depth=0):
-        nonlocal exported_count, total_size_all
-        
-        # Calculate stats
-        recursive_stats = calculate_recursive_stats(dir_path)
-        direct_stats = dir_tree[dir_path]['stats']
-        
-        exported_count += 1
-        total_size_all += recursive_stats['total_size']
-        
-        # Format directory info
-        subdirs_count = direct_stats['subdirs_count']
-        direct_files = direct_stats['total_files']
-        total_files = recursive_stats['total_files']
-        total_size = recursive_stats['total_size']
-        
-        # Build file type breakdown for recursive stats
-        type_parts = []
-        if recursive_stats['images'] > 0:
-            type_parts.append(f"{recursive_stats['images']} image{'s' if recursive_stats['images'] != 1 else ''}")
-        if recursive_stats['videos'] > 0:
-            type_parts.append(f"{recursive_stats['videos']} video{'s' if recursive_stats['videos'] != 1 else ''}")
-        if recursive_stats['other_files'] > 0:
-            type_parts.append(f"{recursive_stats['other_files']} file{'s' if recursive_stats['other_files'] != 1 else ''}")
-        
-        # Format size
-        size_str = format_file_size(total_size)
-        
-        # Build description
-        if total_files == 0:
-            desc = "[empty]"
-        else:
-            parts = []
-            if subdirs_count > 0:
-                parts.append(f"{subdirs_count} dir{'s' if subdirs_count != 1 else ''}")
-            
-            # Show file breakdown
-            if direct_files > 0:
-                # Show direct file breakdown
-                direct_type_parts = []
-                if direct_stats['images'] > 0:
-                    direct_type_parts.append(f"{direct_stats['images']} image{'s' if direct_stats['images'] != 1 else ''}")
-                if direct_stats['videos'] > 0:
-                    direct_type_parts.append(f"{direct_stats['videos']} video{'s' if direct_stats['videos'] != 1 else ''}")
-                if direct_stats['other_files'] > 0:
-                    direct_type_parts.append(f"{direct_stats['other_files']} file{'s' if direct_stats['other_files'] != 1 else ''}")
-                
-                if subdirs_count == 0:
-                    # Only direct files, show them prominently
-                    parts.extend(direct_type_parts)
-                else:
-                    # Has both subdirs and direct files
-                    parts.extend(type_parts)  # Show total breakdown
-            else:
-                # No direct files, show total breakdown
-                parts.extend(type_parts)
-            
-            parts.append(size_str)
-            desc = f"[{', '.join(parts)}]"
-        
-        # Write directory entry 
-        display_path = dir_path + "/" if dir_path else "<root>/"
-        f.write(f"{display_path} {desc}\n")
-        
+        output_file.write(f"{colored_path} {desc}\n")
+
         # Recursively process subdirectories in sorted order
         subdirs = sorted(dir_tree[dir_path]['subdirs'])
         for subdir in subdirs:
-            write_directory_tree(subdir, depth + 1)
+            display_directory_tree(subdir, output_file, depth + 1)
     
     # Only write to file if output_file is provided
     if output_file:
@@ -1314,8 +1250,8 @@ def export_directory_structure(db_path, output_file, console_output=False, curre
                     root_dirs.append(dir_path)
             
             for root_dir in sorted(root_dirs):
-                write_directory_tree(root_dir)
-            
+                display_directory_tree(root_dir, StripAnsiWriter(f))
+
             f.write("\n" + "#" + "="*100 + "\n")
             f.write(f"# SUMMARY:\n")
             f.write(f"# Directories exported: {exported_count}\n")
@@ -1326,39 +1262,16 @@ def export_directory_structure(db_path, output_file, console_output=False, curre
         if output_file:
             print(f"\n{Fore.GREEN}✅ Directory structure exported to: {output_file}{Style.RESET_ALL}")
 
-    # # Prepare root directories list for console output
-    # root_dirs = set()
-    # for dir_path in all_dirs:
-    #     # Skip root "/" if it only contains subdirectories
-    #     # if dir_path == '/':
-    #     #     # Check if root has any direct files
-    #     #     direct_files_count = sum(1 for f in cursor.execute(
-    #     #         "SELECT file_path FROM media_files WHERE file_path LIKE '/[^/]*' AND file_path NOT LIKE '/%/%'"
-    #     #     ).fetchall())
-    #     #     if direct_files_count == 0:
-    #     #         continue  # Skip root if it has no direct files
-        
-    #     # Check if this directory has a parent in our tree
-    #     has_parent_in_tree = False
-    #     for potential_parent in all_dirs:
-    #         if potential_parent != dir_path and potential_parent != '/' and dir_path.startswith(potential_parent + os.sep):
-    #             has_parent_in_tree = True
-    #             break
-        
-    #     if not has_parent_in_tree:
-    #         root_dirs.add(dir_path)
-    
     # Console output if requested
     if console_output:
         print(f"\n{Fore.CYAN}📁 Directory Structure:{Style.RESET_ALL}")
-        print()
         
         # Reset counters for console output
         exported_count = 0
         total_size_all = 0
 
         # Display tree in console with colors
-        print_directory_tree(common_root_dir)
+        display_directory_tree(common_root_dir, sys.stdout)
     
     # Output statistics to screen
     if output_file or console_output:
