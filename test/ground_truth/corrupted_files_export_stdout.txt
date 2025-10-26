@@ -1,0 +1,15 @@
+[32mDatabase contains 52 records[0m[0m
+[0m
+[32m✅ Corrupted files list exported to: corrupted_files.txt[0m[0m
+[0mCorrupted files found: 4[0m
+[0mFormat: Full (with metadata)[0m
+[0mTotal size: 140.0 B[0m
+[0m
+[36mExamples of corrupted files found:[0m[0m
+[0m  [34mIMAGE files:[0m 2 found[0m
+[0m    1. corrupted.jpg (34.0 B, None)[0m
+[0m    2. broken.jpg (34.0 B, None)[0m
+[0m  [34mVIDEO files:[0m 2 found[0m
+[0m    1. broken1.mp4 (36.0 B, N/A, None)[0m
+[0m    2. broken2.avi (36.0 B, N/A, None)[0m
+[0m

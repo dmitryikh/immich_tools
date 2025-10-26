@@ -528,6 +528,74 @@ def export_old_video_files(db_path, output_file, short_format=False, current_tim
         if total_codec_files + total_format_files > len(results):
             print(f"  (Some files have both outdated codec and format)")
 
+def export_corrupted_files(db_path, output_file, short_format=False, current_time=None):
+    """Exports corrupted files (is_corrupted = 1) to text file"""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    query = '''
+        SELECT 
+            file_path,
+            file_name,
+            file_size,
+            media_type,
+            duration,
+            bit_rate,
+            width || 'x' || height as resolution,
+            codec_name
+        FROM media_files 
+        WHERE is_corrupted = 1
+        ORDER BY file_path
+    '''
+    
+    cursor.execute(query)
+    results = cursor.fetchall()
+    
+    if not results:
+        print(f"{Fore.YELLOW}No corrupted files found{Style.RESET_ALL}")
+        conn.close()
+        return
+    
+    # Sort files by directory structure (subdirectories first, then lexicographically)
+    results = sort_files_by_directory_depth(results)
+    
+    # Use unified export function
+    write_export_file(output_file, results, "corrupted files", short_format, current_time)
+    
+    conn.close()
+    
+    # Output statistics to screen
+    print(f"\n{Fore.GREEN}✅ Corrupted files list exported to: {output_file}{Style.RESET_ALL}")
+    print(f"Corrupted files found: {len(results)}")
+    print(f"Format: {'Short (paths only)' if short_format else 'Full (with metadata)'}")
+    print(f"Total size: {format_file_size(sum(row[2] for row in results if row[2]))}")
+    
+    # Show examples by media type
+    print(f"\n{Fore.CYAN}Examples of corrupted files found:{Style.RESET_ALL}")
+    
+    # Group by media type for display
+    media_types = {}
+    for row in results:
+        file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row
+        if media_type not in media_types:
+            media_types[media_type] = []
+        media_types[media_type].append(row)
+    
+    # Show examples for each media type
+    for media_type, files in sorted(media_types.items()):
+        print(f"  {Fore.BLUE}{media_type.upper()} files:{Style.RESET_ALL} {len(files)} found")
+        for i, row in enumerate(files[:2]):
+            file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row
+            size_str = format_file_size(file_size)
+            if media_type == 'video':
+                duration_str = format_duration(duration)
+                print(f"    {i+1}. {file_name} ({size_str}, {duration_str}, {resolution})")
+            else:
+                print(f"    {i+1}. {file_name} ({size_str}, {resolution})")
+    
+    if len(results) > sum(len(files[:2]) for files in media_types.values()):
+        print(f"  ... and more files")
+
 def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50, short_format=False, current_time=None):
     """Exports list of files by given criteria to text file"""
     conn = sqlite3.connect(db_path)
@@ -1370,6 +1438,11 @@ def main():
         help='Export directory structure analysis'
     )
     parser.add_argument(
+        '--export-corrupted',
+        action='store_true',
+        help='Export corrupted files (is_corrupted = 1)'
+    )
+    parser.add_argument(
         '--console',
         action='store_true',
         help='Display directory structure in console with colors (use with --export-dirs)'
@@ -1437,7 +1510,8 @@ def main():
         args.export_raw,
         args.export_old_video,
         args.export_duplicates,
-        args.export_dirs
+        args.export_dirs,
+        args.export_corrupted
     ])
     
     if export_count == 0:
@@ -1450,6 +1524,7 @@ def main():
         print("  --export-old-video    Export video files with outdated codecs/formats")
         print("  --export-duplicates   Export duplicate files")
         print("  --export-dirs         Export directory structure analysis")
+        print("  --export-corrupted    Export corrupted files")
         return
     
     if export_count > 1:
@@ -1476,6 +1551,8 @@ def main():
     elif args.export_dirs:
         output_file = args.export_list if args.export_list else None
         export_directory_structure(args.database, output_file, args.console, current_time)
+    elif args.export_corrupted:
+        export_corrupted_files(args.database, args.export_list, args.short, current_time)
 
 if __name__ == "__main__":
     main()

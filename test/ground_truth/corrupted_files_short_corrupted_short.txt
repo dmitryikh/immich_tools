@@ -1,0 +1,4 @@
+/Users/dmitry/code/immich_tools/test/test_data/photos/no_metadata/corrupted.jpg
+/Users/dmitry/code/immich_tools/test/test_data/videos/corrupted/broken1.mp4
+/Users/dmitry/code/immich_tools/test/test_data/videos/corrupted/broken2.avi
+/Users/dmitry/code/immich_tools/test/test_data/mixed_content/broken.jpg

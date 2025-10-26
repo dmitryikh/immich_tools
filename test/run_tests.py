@@ -180,6 +180,18 @@ class TestFramework:
                 'output_files': ['no_metadata_files.txt']
             },
             
+            'corrupted_files_export': {
+                'description': 'Export corrupted files',
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'corrupted_files.txt', '--export-corrupted', '--now-time', test_time],
+                'output_files': ['corrupted_files.txt']
+            },
+            
+            'corrupted_files_short': {
+                'description': 'Export corrupted files in short format',
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'corrupted_short.txt', '--export-corrupted', '--short', '--now-time', test_time],
+                'output_files': ['corrupted_short.txt']
+            },
+            
             'raw_files': {
                 'description': 'Export RAW files',
                 'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'raw_files.txt', '--export-raw', '--now-time', test_time],
