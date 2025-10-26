@@ -2,11 +2,12 @@
 --- POST COMMAND STDERR ---
 
 Processing files:   0%|          | 0/26 [00:00<?, ?files/s][0m
-Processing files:  15%|█▌        | 4/26 [00:00<00:00, 28.20files/s][0m
-Processing files:  27%|██▋       | 7/26 [00:00<00:00, 25.16files/s][0m
-Processing files:  38%|███▊      | 10/26 [00:00<00:00, 25.69files/s][0m
-Processing files:  58%|█████▊    | 15/26 [00:00<00:00, 31.33files/s][0m
-Processing files:  73%|███████▎  | 19/26 [00:00<00:00, 30.14files/s][0m
-Processing files:  88%|████████▊ | 23/26 [00:00<00:00, 29.63files/s][0m[0m
-Processing files: 100%|██████████| 26/26 [00:00<00:00, 29.34files/s][0m
+Processing files:  12%|█▏        | 3/26 [00:00<00:00, 29.29files/s][0m
+Processing files:  23%|██▎       | 6/26 [00:00<00:00, 24.53files/s][0m
+Processing files:  35%|███▍      | 9/26 [00:00<00:00, 23.34files/s][0m
+Processing files:  50%|█████     | 13/26 [00:00<00:00, 28.46files/s][0m
+Processing files:  65%|██████▌   | 17/26 [00:00<00:00, 31.72files/s][0m
+Processing files:  81%|████████  | 21/26 [00:00<00:00, 27.38files/s][0m
+Processing files:  96%|█████████▌| 25/26 [00:00<00:00, 28.64files/s][0m[0m
+Processing files: 100%|██████████| 26/26 [00:00<00:00, 28.28files/s][0m
 [0m

@@ -114,15 +114,15 @@ def write_export_file(output_file, file_list, export_type, short_format=False, c
         for row in file_list:
             # Handle different record formats
             if len(row) >= 10 and kwargs.get('include_potential_dates'):
-                # Enhanced format with potential creation dates
-                file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, potential_date, date_source = row[:10]
+                # Enhanced format with potential creation dates (path and mtime)
+                file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name, path_date, mtime_date = row[:10]
             elif len(row) >= 8:  # Full record format
                 file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row[:8]
-                potential_date = date_source = None
+                path_date = mtime_date = None
             elif len(row) >= 7:  # Video record format (no media_type)
                 file_path, file_name, file_size, bit_rate, duration, resolution, codec_name = row
                 media_type = 'video'  # Assume video for bitrate queries
-                potential_date = date_source = None
+                path_date = mtime_date = None
             else:
                 # Minimal format - extract what we can
                 file_path = row[0]
@@ -130,7 +130,7 @@ def write_export_file(output_file, file_list, export_type, short_format=False, c
                 file_size = row[2] if len(row) > 2 else None
                 media_type = 'unknown'
                 duration = bit_rate = resolution = codec_name = None
-                potential_date = date_source = None
+                path_date = mtime_date = None
             
             total_size += file_size if file_size else 0
             if media_type == 'video':
@@ -158,16 +158,28 @@ def write_export_file(output_file, file_list, export_type, short_format=False, c
                             import time
                             mtime = os.path.getmtime(file_path)
                             mtime_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(mtime))
-                    except (OSError, ValueError):
+                    except (OSError, ValueError) as e:
+                        print(f"{Fore.YELLOW}Warning: Cannot get mtime for {file_path}: {e}{Style.RESET_ALL}")
                         mtime_str = "N/A"
                     
                     f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution_str} | {codec_str} | {mtime_str}\n")
                     f.write(f"{file_path}\n")
                     
-                    # Add potential creation time suggestion if available
-                    if potential_date and date_source == "from path":
+                    # Add potential creation time suggestions
+                    if path_date and mtime_date:
+                        # Both options available - path has priority, mtime is commented
                         f.write(f"# From path:\n")
-                        f.write(f"CREATION_TIME {potential_date}\n")
+                        f.write(f"CREATION_TIME {path_date}\n")
+                        f.write(f"# From mtime:\n")
+                        f.write(f"# CREATION_TIME {mtime_date}\n")
+                    elif path_date:
+                        # Only path option available - not commented
+                        f.write(f"# From path:\n")
+                        f.write(f"CREATION_TIME {path_date}\n")
+                    elif mtime_date:
+                        # Only mtime option available - not commented
+                        f.write(f"# From mtime:\n")
+                        f.write(f"CREATION_TIME {mtime_date}\n")
                     
                     f.write("\n")
                 else:
@@ -847,28 +859,26 @@ def export_no_metadata_files(db_path, output_file, short_format=False, current_t
     enhanced_results = []
     for row in results:
         file_path = row[0]
-        potential_creation_time = None
-        creation_source = None
+        path_creation_time = None
+        mtime_creation_time = None
         
         # Try parsing from path
         parsed_date = parse_datetime_from_path(file_path)
         if parsed_date:
-            potential_creation_time = parsed_date.strftime('%Y-%m-%d %H:%M:%S')
-            creation_source = "from path"
-        else:
-            # Try mtime as fallback
-            try:
-                if os.path.exists(file_path):
-                    mtime = os.path.getmtime(file_path)
-                    mtime_date = datetime.fromtimestamp(mtime)
-                    potential_creation_time = mtime_date.strftime('%Y-%m-%d %H:%M:%S')
-                    creation_source = "from mtime"
-            except (OSError, ValueError):
-                potential_creation_time = None
-                creation_source = None
+            path_creation_time = parsed_date.strftime('%Y-%m-%d %H:%M:%S')
         
-        # Add potential creation info to the row
-        enhanced_row = row + (potential_creation_time, creation_source)
+        # Always try mtime as alternative option
+        try:
+            if os.path.exists(file_path):
+                mtime = os.path.getmtime(file_path)
+                mtime_date = datetime.fromtimestamp(mtime)
+                mtime_creation_time = mtime_date.strftime('%Y-%m-%d %H:%M:%S')
+        except (OSError, ValueError) as e:
+            print(f"{Fore.YELLOW}Warning: Cannot get mtime for {file_path}: {e}{Style.RESET_ALL}")
+            mtime_creation_time = None
+        
+        # Add both potential creation times to the row
+        enhanced_row = row + (path_creation_time, mtime_creation_time)
         enhanced_results.append(enhanced_row)
     
     # Use unified export function with enhanced data
@@ -895,15 +905,17 @@ def export_no_metadata_files(db_path, output_file, short_format=False, current_t
         print(f"  {Fore.BLUE}Images:{Style.RESET_ALL}")
         for i, row in enumerate(image_examples):
             file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row[:8]
-            potential_date = row[8] if len(row) > 8 else None
-            date_source = row[9] if len(row) > 9 else None
+            path_date = row[8] if len(row) > 8 else None
+            mtime_date = row[9] if len(row) > 9 else None
             
             size_str = format_file_size(file_size)
             
             # Show potential creation time from enhanced data
             creation_info = ""
-            if potential_date and date_source:
-                creation_info = f", potential date: {potential_date} [{date_source}]"
+            if path_date:
+                creation_info = f", potential date: {path_date} [from path]"
+            elif mtime_date:
+                creation_info = f", potential date: {mtime_date} [from mtime]"
             else:
                 creation_info = ", no potential date found"
             
@@ -915,8 +927,8 @@ def export_no_metadata_files(db_path, output_file, short_format=False, current_t
         print(f"  {Fore.MAGENTA}Videos:{Style.RESET_ALL}")
         for i, row in enumerate(video_examples):
             file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_name = row[:8]
-            potential_date = row[8] if len(row) > 8 else None
-            date_source = row[9] if len(row) > 9 else None
+            path_date = row[8] if len(row) > 8 else None
+            mtime_date = row[9] if len(row) > 9 else None
             
             size_str = format_file_size(file_size)
             duration_str = format_duration(duration)
@@ -924,8 +936,10 @@ def export_no_metadata_files(db_path, output_file, short_format=False, current_t
             
             # Show potential creation time from enhanced data
             creation_info = ""
-            if potential_date and date_source:
-                creation_info = f", potential date: {potential_date} [{date_source}]"
+            if path_date:
+                creation_info = f", potential date: {path_date} [from path]"
+            elif mtime_date:
+                creation_info = f", potential date: {mtime_date} [from mtime]"
             else:
                 creation_info = ", no potential date found"
             
