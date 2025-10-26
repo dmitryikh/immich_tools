@@ -106,7 +106,7 @@ def write_export_file(output_file, file_list, export_type, short_format=False, c
             
             f.write("#\n")
             if kwargs.get('include_potential_dates'):
-                f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec | potential_creation_date\n")
+                f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec | mtime\n")
             else:
                 f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec\n")
             f.write("#" + "="*100 + "\n\n")
@@ -149,15 +149,30 @@ def write_export_file(output_file, file_list, export_type, short_format=False, c
                 codec_str = codec_name if codec_name else "N/A"
                 resolution_str = resolution if resolution else "N/A"
                 
-                # Add potential creation date info if available
-                date_info = ""
-                if potential_date and date_source:
-                    date_info = f" | Potential date: {potential_date} [{date_source}]"
-                elif kwargs.get('include_potential_dates'):
-                    date_info = " | No potential date found"
-                
-                f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution_str} | {codec_str}{date_info}\n")
-                f.write(f"{file_path}\n\n")
+                # For no-metadata files, add mtime info
+                if kwargs.get('include_potential_dates'):
+                    # Get mtime for the file
+                    mtime_str = "N/A"
+                    try:
+                        if os.path.exists(file_path):
+                            import time
+                            mtime = os.path.getmtime(file_path)
+                            mtime_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(mtime))
+                    except (OSError, ValueError):
+                        mtime_str = "N/A"
+                    
+                    f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution_str} | {codec_str} | {mtime_str}\n")
+                    f.write(f"{file_path}\n")
+                    
+                    # Add potential creation time suggestion if available
+                    if potential_date and date_source == "from path":
+                        f.write(f"# From path:\n")
+                        f.write(f"CREATION_TIME {potential_date}\n")
+                    
+                    f.write("\n")
+                else:
+                    f.write(f"# {media_type.upper()} | {size_str} | {duration_str} | {bitrate_str} | {resolution_str} | {codec_str}\n")
+                    f.write(f"{file_path}\n\n")
         
         if not short_format:
             # Summary statistics for full format

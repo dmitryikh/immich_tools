@@ -250,6 +250,13 @@ class TestFramework:
                 'description': 'Export directories with minimum size (1MB)',
                 'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'large_dirs.txt', '--export-dirs', '--now-time', test_time],
                 'output_files': ['large_dirs.txt']
+            },
+            
+            'assign_creation_time_dry_run': {
+                'description': 'Test assign_creation_time.py with dry-run on files without metadata',
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'no_metadata_for_assign.txt', '--export-no-metadata', '--now-time', test_time],
+                'output_files': ['no_metadata_for_assign.txt'],
+                'post_cmd': [sys.executable, 'assign_creation_time.py', 'no_metadata_for_assign.txt', '--dry-run', '--verbose', '--workers', '1']
             }
         }
         
@@ -402,10 +409,58 @@ class TestFramework:
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         output_files_content[output_file] = f.read()
-                    # Clean up the file
-                    file_path.unlink()
+                    # Don't clean up file yet if there's a post_cmd that needs it
+                    if 'post_cmd' not in scenario:
+                        file_path.unlink()
                 except Exception as e:
                     self.log(f"Error reading output file {output_file}: {e}", "WARNING")
+        
+        # Run post command if specified
+        post_result = None
+        if 'post_cmd' in scenario:
+            self.log(f"Running post command for {test_name}")
+            post_result = self.run_command(scenario['post_cmd'], f"{test_name}_post")
+            
+            if post_result is None:
+                self.log(f"Failed to run post command for {test_name}", "ERROR")
+                # Clean up files and fail test
+                for output_file in scenario['output_files']:
+                    file_path = self.root_dir / output_file
+                    if file_path.exists():
+                        file_path.unlink()
+                self.failed_tests.append(test_name)
+                return False
+            
+            # Check post command exit code
+            if post_result['returncode'] != 0:
+                self.log(f"Post command failed with exit code {post_result['returncode']}: {test_name}", "ERROR")
+                if post_result['stderr'].strip():
+                    print(f"{Fore.RED}POST COMMAND STDERR:{Style.RESET_ALL}")
+                    print(f"{Fore.RED}{post_result['stderr']}{Style.RESET_ALL}")
+                
+                # Clean up files and fail test
+                for output_file in scenario['output_files']:
+                    file_path = self.root_dir / output_file
+                    if file_path.exists():
+                        file_path.unlink()
+                self.failed_tests.append(test_name)
+                return False
+            
+            # Combine stdout from both commands
+            combined_stdout = result['stdout']
+            if post_result['stdout'].strip():
+                combined_stdout += f"\n--- POST COMMAND OUTPUT ---\n{post_result['stdout']}"
+            
+            # Update result with combined output
+            result['stdout'] = combined_stdout
+            if post_result['stderr'].strip():
+                result['stderr'] += f"\n--- POST COMMAND STDERR ---\n{post_result['stderr']}"
+            
+            # Clean up output files now
+            for output_file in scenario['output_files']:
+                file_path = self.root_dir / output_file
+                if file_path.exists():
+                    file_path.unlink()
         
         # Save results
         self.save_result(test_name, result, output_files_content)

@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """
-Restore Creation Time Metadata from File Paths
+Restore Creation Time Metadata from File List with Suggested Timestamps
 
-Processes files from a list and attempts to restore creation time metadata 
-from file paths and filenames when EXIF data is missing.
+Processes files from a list exported by media_query.py --export-no-metadata 
+and assigns creation time metadata based on CREATION_TIME suggestions in the file.
 
-Supported patterns:
-- /path/2011/folder/file.mov -> 2011-01-01 00:00:00
-- /path/2013/2013.06.xx - folder/file.MOV -> 2013-06-01 00:00:00  
-- /path/2013/2013.09.13-folder/file.MOV -> 2013-09-13 00:00:00
-- /path/2015/folder/2015-12-27 19-22-41.MP4 -> 2015-12-27 19:22:41
+Expected input format (from media_query.py --export-no-metadata):
+```
+# VIDEO | 3.9 MB | 00:12 | 2.6 Mbit/s | 1280x720 | h264 | 2016-05-14 02:12:13
+/data/homevideo/2016/2016.05.14 - Парк Патриот/alpha/00000_720p.mp4
+# From path:
+CREATION_TIME 2016-05-14 00:00:00
+
+# VIDEO | 2.1 GB | 54:39 | 5.6 Mbit/s | 720x576 | h264 | 2025-10-21 07:25:29
+/data/2006 - Выпускной .mp4
+```
 
 Usage:
-python assign_creation_time.py files_list.txt --pattern "Camera Uploads" --dry-run
+python assign_creation_time.py files_with_suggestions.txt --pattern "Camera Uploads" --dry-run
 """
 
 import os
@@ -30,21 +35,100 @@ from tqdm import tqdm
 
 # Import from local library
 from lib.metadata import set_image_exif_datetime, set_video_metadata_datetime, get_image_metadata, get_video_metadata, VideoMetadataError
-from lib.utils import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, SUPPORTED_EXTENSIONS, read_file_list, parse_datetime_from_path
+from lib.utils import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, SUPPORTED_EXTENSIONS
 
 # Initialize colorama with forced colors for container support
 init(autoreset=True, strip=False)
+
+def parse_file_list_with_suggestions(input_file_path: str) -> List[tuple[str, Optional[datetime]]]:
+    """
+    Parse file list with CREATION_TIME suggestions from media_query.py --export-no-metadata
+    
+    Returns:
+        List of tuples: (file_path, suggested_datetime)
+    """
+    results = []
+    
+    try:
+        with open(input_file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            # Skip comments and empty lines
+            if line.startswith('#') or not line:
+                i += 1
+                continue
+            
+            # Skip CREATION_TIME lines (they should be processed with file paths)
+            if line.startswith('CREATION_TIME '):
+                i += 1
+                continue
+            
+            # This should be a file path
+            current_file_path = line
+            suggested_datetime = None
+            
+            # Look for CREATION_TIME suggestion in the next few lines
+            j = i + 1
+            while j < len(lines) and j < i + 5:  # Look at most 5 lines ahead
+                next_line = lines[j].strip()
+                
+                # Break if we hit another file path (doesn't start with # or CREATION_TIME)
+                if (next_line and 
+                    not next_line.startswith('#') and 
+                    not next_line.startswith('CREATION_TIME')
+                    ):
+                    break
+                
+                # Check for CREATION_TIME pattern
+                if next_line.startswith('CREATION_TIME '):
+                    timestamp_str = next_line.replace('CREATION_TIME ', '').strip()
+                    try:
+                        suggested_datetime = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                    except ValueError as e:
+                        print(f"{Fore.RED}Error: Invalid datetime format in line '{next_line}': {e}{Style.RESET_ALL}")
+                        print(f"{Fore.RED}Expected format: CREATION_TIME YYYY-MM-DD HH:MM:SS{Style.RESET_ALL}")
+                        sys.exit(1)
+                    break
+                
+                j += 1
+            
+            results.append((current_file_path, suggested_datetime))
+            i = j if j > i + 1 else i + 1
+    
+    except Exception as e:
+        print(f"{Fore.RED}Error reading file list: {e}{Style.RESET_ALL}")
+        return []
+    
+    return results
 
 # Thread-safe counters
 stats_lock = Lock()
 stats = {
     'processed': 0,
     'updated': 0,
-    'updated_from_mtime': 0,
     'skipped_has_metadata': 0,
     'skipped_no_pattern': 0,
     'errors': 0
 }
+
+def filter_supported_media_files(file_suggestions: List[tuple[str, Optional[datetime]]]) -> List[tuple[str, Optional[datetime]]]:
+    """Filter list to only include supported media files"""
+    result_files = []
+    
+    for media_file_path, suggested_dt in file_suggestions:
+        if not os.path.exists(media_file_path):
+            continue  # Skip non-existent files
+            
+        file_extension = Path(media_file_path).suffix.lower()
+        
+        if file_extension in SUPPORTED_EXTENSIONS:
+            result_files.append((media_file_path, suggested_dt))
+    
+    return result_files
 
 
 def has_creation_metadata(file_path: str) -> bool:
@@ -93,8 +177,8 @@ def set_metadata_datetime(file_path: str, creation_time: datetime, dry_run: bool
     # No suitable file type
     return False, "Unsupported file type"
 
-def process_file(file_path: str, dry_run: bool = False, verbose: bool = False, fallback_to_mtime: bool = False) -> str:
-    """Process single file - check metadata and restore if needed"""
+def process_file(file_path: str, suggested_datetime: Optional[datetime], dry_run: bool = False, verbose: bool = False) -> str:
+    """Process single file - check metadata and restore if suggested datetime is available"""
     global stats
     
     try:
@@ -108,35 +192,21 @@ def process_file(file_path: str, dry_run: bool = False, verbose: bool = False, f
                 return f"{Fore.BLUE}SKIP (has metadata): {file_path}{Style.RESET_ALL}"
             return "skipped_has_metadata"
         
-        # Try to parse datetime from path
-        parsed_datetime = parse_datetime_from_path(file_path)
-        fallback_used = False
-        
-        # If no pattern found and fallback is enabled, use mtime
-        if not parsed_datetime and fallback_to_mtime:
-            try:
-                mtime = os.path.getmtime(file_path)
-                parsed_datetime = datetime.fromtimestamp(mtime)
-                fallback_used = True
-            except (OSError, ValueError):
-                parsed_datetime = None
-        
-        if not parsed_datetime:
+        # Check if we have a suggested datetime
+        if not suggested_datetime:
             with stats_lock:
                 stats['processed'] += 1
                 stats['skipped_no_pattern'] += 1
             
             if verbose:
-                return f"{Fore.YELLOW}SKIP (no pattern): {file_path}{Style.RESET_ALL}"
+                return f"{Fore.YELLOW}SKIP (no suggestion): {file_path}{Style.RESET_ALL}"
             return "skipped_no_pattern"
         
-        # Set creation time metadata
+        # Set creation time metadata using suggested datetime
         if dry_run:
             with stats_lock:
                 stats['processed'] += 1
                 stats['updated'] += 1
-                if fallback_used:
-                    stats['updated_from_mtime'] += 1
             
             file_ext = Path(file_path).suffix.lower()
             if file_ext in IMAGE_EXTENSIONS:
@@ -146,23 +216,19 @@ def process_file(file_path: str, dry_run: bool = False, verbose: bool = False, f
             else:
                 method = "Unknown"
             
-            fallback_text = " [from mtime]" if fallback_used else ""
-            return f"{Fore.CYAN}[DRY RUN] Would set {file_path} -> {parsed_datetime} (via {method}){fallback_text}{Style.RESET_ALL}"
+            return f"{Fore.CYAN}[DRY RUN] Would set {file_path} -> {suggested_datetime} (via {method}){Style.RESET_ALL}"
         else:
-            success, method = set_metadata_datetime(file_path, parsed_datetime, dry_run)
+            success, method = set_metadata_datetime(file_path, suggested_datetime, dry_run)
             
             with stats_lock:
                 stats['processed'] += 1
                 if success:
                     stats['updated'] += 1
-                    if fallback_used:
-                        stats['updated_from_mtime'] += 1
                 else:
                     stats['errors'] += 1
             
-            fallback_text = " [from mtime]" if fallback_used else ""
             if success:
-                return f"{Fore.GREEN}✓ UPDATED: {file_path} -> {parsed_datetime} (via {method}){fallback_text}{Style.RESET_ALL}"
+                return f"{Fore.GREEN}✓ UPDATED: {file_path} -> {suggested_datetime} (via {method}){Style.RESET_ALL}"
             else:
                 return f"{Fore.RED}✗ ERROR: Failed to update {file_path}{Style.RESET_ALL}"
                 
@@ -188,11 +254,11 @@ def filter_media_files(file_list: List[str]) -> List[str]:
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(
-        description='Restore creation time metadata from file paths and names'
+        description='Restore creation time metadata from file list with suggested timestamps'
     )
     parser.add_argument(
         'file_list',
-        help='Path to file with list of files to process'
+        help='Path to file with list of files and CREATION_TIME suggestions (from media_query.py --export-no-metadata)'
     )
     parser.add_argument(
         '--dry-run',
@@ -211,23 +277,8 @@ def main():
         help='Number of parallel workers for processing files (default: 4)'
     )
     parser.add_argument(
-        '--image-only',
-        action='store_true',
-        help='Process only image files'
-    )
-    parser.add_argument(
-        '--video-only',
-        action='store_true',
-        help='Process only video files'
-    )
-    parser.add_argument(
         '--pattern',
         help='Only process files containing specified pattern in path'
-    )
-    parser.add_argument(
-        '--fallback-to-mtime',
-        action='store_true',
-        help='Use file modification time if creation date cannot be parsed from path'
     )
     
     args = parser.parse_args()
@@ -237,30 +288,28 @@ def main():
         print(f"{Fore.RED}❌ File list not found: {args.file_list}{Style.RESET_ALL}")
         sys.exit(1)
     
-    # Read file list
+    # Read file list with suggestions
     print(f"📋 Reading list from: {args.file_list}")
-    file_list = read_file_list(args.file_list)
+    file_suggestions = parse_file_list_with_suggestions(args.file_list)
     
-    if not file_list:
+    if not file_suggestions:
         print(f"{Fore.YELLOW}⚠️  File list is empty{Style.RESET_ALL}")
         sys.exit(0)
     
-    print(f"Found {len(file_list)} paths in list")
+    print(f"Found {len(file_suggestions)} paths in list")
+    
+    # Count files with suggestions
+    with_suggestions = len([f for f in file_suggestions if f[1] is not None])
+    print(f"Files with CREATION_TIME suggestions: {with_suggestions}")
     
     # Filter by pattern if specified
     if args.pattern:
-        original_count = len(file_list)
-        file_list = [f for f in file_list if args.pattern in f]
-        print(f"After pattern filtering '{args.pattern}': {len(file_list)} of {original_count}")
+        original_count = len(file_suggestions)
+        file_suggestions = [(f, dt) for f, dt in file_suggestions if args.pattern in f]
+        print(f"After pattern filtering '{args.pattern}': {len(file_suggestions)} of {original_count}")
     
     # Filter to only media files
-    media_files = filter_media_files(file_list)
-    
-    # Filter by type if requested
-    if args.image_only:
-        media_files = [f for f in media_files if Path(f).suffix.lower() in IMAGE_EXTENSIONS]
-    elif args.video_only:
-        media_files = [f for f in media_files if Path(f).suffix.lower() in VIDEO_EXTENSIONS]
+    media_files = filter_supported_media_files(file_suggestions)
     
     if not media_files:
         print(f"{Fore.YELLOW}No media files found in list{Style.RESET_ALL}")
@@ -279,8 +328,8 @@ def main():
             # Parallel processing
             with ThreadPoolExecutor(max_workers=args.workers) as executor:
                 future_to_file = {
-                    executor.submit(process_file, file_path, args.dry_run, args.verbose, args.fallback_to_mtime): file_path 
-                    for file_path in media_files
+                    executor.submit(process_file, file_path, suggested_datetime, args.dry_run, args.verbose): (file_path, suggested_datetime)
+                    for file_path, suggested_datetime in media_files
                 }
                 
                 for future in as_completed(future_to_file):
@@ -292,8 +341,8 @@ def main():
                     pbar.update(1)
         else:
             # Sequential processing
-            for file_path in media_files:
-                result = process_file(file_path, args.dry_run, args.verbose, args.fallback_to_mtime)
+            for file_path, suggested_datetime in media_files:
+                result = process_file(file_path, suggested_datetime, args.dry_run, args.verbose)
                 
                 if args.verbose and not result.startswith("skipped"):
                     print(result)
@@ -302,13 +351,12 @@ def main():
     
     # Display final statistics
     elapsed = time.time() - start_time
-    print(f"\n{Fore.GREEN}Processing completed in {elapsed:.2f} seconds!{Style.RESET_ALL}")
+    # This line is not deterministic.
+    # print(f"\n{Fore.GREEN}Processing completed in {elapsed:.2f} seconds!{Style.RESET_ALL}")
     print(f"Files processed: {stats['processed']}")
     print(f"Files updated: {stats['updated']}")
-    if stats['updated_from_mtime'] > 0:
-        print(f"Files updated from mtime: {stats['updated_from_mtime']}")
     print(f"Files with existing metadata: {stats['skipped_has_metadata']}")
-    print(f"Files with no date pattern: {stats['skipped_no_pattern']}")
+    print(f"Files with no suggestions: {stats['skipped_no_pattern']}")
     print(f"Errors: {stats['errors']}")
     
     if args.dry_run:
