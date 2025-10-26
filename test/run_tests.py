@@ -233,7 +233,7 @@ class TestFramework:
             
             'min_dir_size': {
                 'description': 'Export directories with minimum size (1MB)',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-dirs', 'large_dirs.txt', '--min-dir-size', '1'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-dirs', 'large_dirs.txt'],
                 'output_files': ['large_dirs.txt']
             }
         }

@@ -2,7 +2,7 @@ usage: media_query.py [-h] [--database DATABASE] [--export-list FILE]
                       [--min-bitrate MBPS] [--suffix SUFFIX]
                       [--export-no-metadata] [--export-raw]
                       [--export-old-video] [--export-duplicates]
-                      [--export-dirs] [--console] [--min-dir-size MB]
+                      [--export-dirs] [--console]
                       [--export-pattern PATTERN [PATTERN ...]] [--short]
 [0mmedia_query.py: error: unrecognized arguments: large_dirs.txt
 [0m

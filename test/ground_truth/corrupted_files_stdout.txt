@@ -8,8 +8,8 @@
 [36mExamples of files without metadata:[0m[0m
 [0m  [34mImages:[0m[0m
 [0m    1. DSC_001.dng (50.0 B, None, potential date: 2024-01-01 00:00:00 [from path])[0m
-[0m    2. CR3_001.dng (50.0 B, None, potential date: 2025-10-26 09:51:37 [from mtime])[0m
-[0m    3. CR3_002.dng (50.0 B, None, potential date: 2025-10-26 09:51:37 [from mtime])[0m
+[0m    2. CR3_001.dng (50.0 B, None, potential date: 2025-10-26 13:43:56 [from mtime])[0m
+[0m    3. CR3_002.dng (50.0 B, None, potential date: 2025-10-26 13:43:56 [from mtime])[0m
 [0m  [35mVideos:[0m[0m
 [0m    1. family_dinner.mp4 (2.0 KB, 00:01, h264, potential date: 2023-01-01 00:00:00 [from path])[0m
 [0m    2. kids_playing.mp4 (2.0 KB, 00:01, h264, potential date: 2023-01-01 00:00:00 [from path])[0m
