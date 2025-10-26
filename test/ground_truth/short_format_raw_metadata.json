@@ -1,7 +1,7 @@
 {
   "test_name": "short_format_raw",
-  "timestamp": "2025-10-26T13:43:58.882751",
-  "cmd": "/Users/dmitry/code/immich_tools/venv/bin/python media_query.py --database test/test_data/test_analysis.db --export-list raw_short.txt --export-raw --short",
+  "timestamp": "2025-10-26T14:08:03.186830",
+  "cmd": "/Users/dmitry/code/immich_tools/venv/bin/python media_query.py --database test/test_data/test_analysis.db --export-list raw_short.txt --export-raw --short --now-time 2024-01-15 10:30:00",
   "returncode": 0,
   "output_files": [
     "raw_short.txt"

@@ -4,5 +4,6 @@ usage: media_query.py [-h] [--database DATABASE] [--export-list FILE]
                       [--export-old-video] [--export-duplicates]
                       [--export-dirs] [--console]
                       [--export-pattern PATTERN [PATTERN ...]] [--short]
+                      [--now-time DATETIME]
 [0mmedia_query.py: error: unrecognized arguments: dirs_structure.txt
 [0m

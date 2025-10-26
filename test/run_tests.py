@@ -164,6 +164,9 @@ class TestFramework:
         test_data_rel = os.path.relpath(self.test_data_dir, self.root_dir)
         db_rel = os.path.relpath(self.database_path, self.root_dir)
         
+        # Use constant time for deterministic output in tests
+        test_time = "2024-01-15 10:30:00"
+        
         scenarios = {
             'basic_stats': {
                 'description': 'Basic statistics query',
@@ -173,67 +176,67 @@ class TestFramework:
             
             'corrupted_files': {
                 'description': 'Export files without metadata',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'no_metadata_files.txt', '--export-no-metadata'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'no_metadata_files.txt', '--export-no-metadata', '--now-time', test_time],
                 'output_files': ['no_metadata_files.txt']
             },
             
             'raw_files': {
                 'description': 'Export RAW files',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'raw_files.txt', '--export-raw'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'raw_files.txt', '--export-raw', '--now-time', test_time],
                 'output_files': ['raw_files.txt']
             },
             
             'old_videos': {
                 'description': 'Export old video formats',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'old_videos.txt', '--export-old-video'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'old_videos.txt', '--export-old-video', '--now-time', test_time],
                 'output_files': ['old_videos.txt']
             },
             
             'duplicate_files': {
                 'description': 'Export duplicate files',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'duplicates.txt', '--export-duplicates'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'duplicates.txt', '--export-duplicates', '--now-time', test_time],
                 'output_files': ['duplicates.txt']
             },
             
             'high_bitrate_videos': {
                 'description': 'Export high bitrate videos (>1 Mbps)',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'high_bitrate.txt', '--min-bitrate', '1'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'high_bitrate.txt', '--min-bitrate', '1', '--now-time', test_time],
                 'output_files': ['high_bitrate.txt']
             },
             
             'suffix_files': {
                 'description': 'Export files with _720p suffix',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'suffix_files.txt', '--suffix', '_720p'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'suffix_files.txt', '--suffix', '_720p', '--now-time', test_time],
                 'output_files': ['suffix_files.txt']
             },
             
             'export_dirs_text': {
                 'description': 'Export directory structure as text',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-dirs', 'dirs_structure.txt'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-dirs', 'dirs_structure.txt', '--now-time', test_time],
                 'output_files': ['dirs_structure.txt']
             },
             
             'export_dirs_console': {
                 'description': 'Export directory structure to console with colors',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-dirs', '--console'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-dirs', '--console', '--now-time', test_time],
                 'output_files': []
             },
             
             'pattern_search_camera': {
                 'description': 'Search files by camera pattern',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'camera_files.txt', '--export-pattern', 'camera'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'camera_files.txt', '--export-pattern', 'camera', '--now-time', test_time],
                 'output_files': ['camera_files.txt']
             },
             
             'short_format_raw': {
                 'description': 'Export RAW files in short format',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'raw_short.txt', '--export-raw', '--short'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'raw_short.txt', '--export-raw', '--short', '--now-time', test_time],
                 'output_files': ['raw_short.txt']
             },
             
             'min_dir_size': {
                 'description': 'Export directories with minimum size (1MB)',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-dirs', 'large_dirs.txt'],
+                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-dirs', 'large_dirs.txt', '--now-time', test_time],
                 'output_files': ['large_dirs.txt']
             }
         }

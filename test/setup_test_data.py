@@ -31,6 +31,22 @@ from colorama import Fore, Style, init
 # Initialize colorama
 init(autoreset=True)
 
+def set_file_mtime(file_path, target_datetime):
+    """
+    Set the modification time (mtime) of a file to match target datetime.
+    
+    Args:
+        file_path: Path to the file
+        target_datetime: datetime object to set as mtime
+    """
+    try:
+        timestamp = target_datetime.timestamp()
+        os.utime(file_path, (timestamp, timestamp))  # (atime, mtime)
+        return True
+    except Exception as e:
+        print(f"{Fore.YELLOW}Warning: Could not set mtime for {file_path}: {e}{Style.RESET_ALL}")
+        return False
+
 def create_minimal_jpeg_with_exif(output_path, creation_date=None):
     """
     Create a minimal JPEG file with EXIF metadata using Python PIL.
@@ -365,11 +381,27 @@ def setup_test_data(output_dir="test_data", cleanup=False):
     for dir_path in directories:
         (output_path / dir_path).mkdir(parents=True, exist_ok=True)
     
-    # Define test dates
+    # Define test dates with corresponding mtime
     dates = {
         'recent': datetime(2024, 6, 15, 14, 30, 0),
         'old': datetime(2023, 3, 20, 10, 15, 0),
         'older': datetime(2022, 12, 25, 16, 45, 0)
+    }
+    
+    # Directory-specific dates for mtime setting
+    dir_dates = {
+        'photos/2023/summer': dates['old'],
+        'photos/2023/winter': dates['older'], 
+        'photos/2024/vacation': dates['recent'],
+        'photos/raw_files': dates['old'],  # Mixed dates, use old as default
+        'photos/no_metadata': dates['recent'],  # Recent files without metadata
+        'videos/2023/family': dates['old'],
+        'videos/2024/events': dates['recent'],
+        'videos/legacy': dates['older'],  # Old legacy formats
+        'videos/corrupted': dates['recent'],  # Recent corruption issues
+        'mixed_content': dates['recent'],
+        'documents': dates['recent'],
+        'system_files': dates['recent']
     }
     
     files_created = 0
@@ -378,20 +410,21 @@ def setup_test_data(output_dir="test_data", cleanup=False):
     
     # 1. RAW photos (DNG format)
     raw_files = [
-        "photos/raw_files/IMG_001.dng",
-        "photos/raw_files/IMG_002.dng",
-        "photos/raw_files/canon/CR3_001.dng",          # In subdirectory
-        "photos/raw_files/canon/CR3_002.dng",          # In subdirectory
-        "photos/raw_files/canon/IMG_001.dng",          # CONFLICT: same name as parent
-        "photos/raw_files/nikon/NEF_001.dng",          # In subdirectory
-        "photos/raw_files/nikon/NEF_002.dng",          # In subdirectory
-        "photos/raw_files/nikon/IMG_002.dng",          # CONFLICT: same name as parent
-        "photos/2024/vacation/DSC_001.dng"
+        ("photos/raw_files/IMG_001.dng", dates['old']),
+        ("photos/raw_files/IMG_002.dng", dates['old']),
+        ("photos/raw_files/canon/CR3_001.dng", dates['old']),          # In subdirectory
+        ("photos/raw_files/canon/CR3_002.dng", dates['old']),          # In subdirectory
+        ("photos/raw_files/canon/IMG_001.dng", dates['old']),          # CONFLICT: same name as parent
+        ("photos/raw_files/nikon/NEF_001.dng", dates['old']),          # In subdirectory
+        ("photos/raw_files/nikon/NEF_002.dng", dates['old']),          # In subdirectory
+        ("photos/raw_files/nikon/IMG_002.dng", dates['old']),          # CONFLICT: same name as parent
+        ("photos/2024/vacation/DSC_001.dng", dates['recent'])
     ]
     
-    for raw_file in raw_files:
+    for raw_file, file_date in raw_files:
         file_path = output_path / raw_file
         if create_minimal_dng(file_path):
+            set_file_mtime(file_path, file_date)
             print(f"  ✓ RAW: {raw_file}")
             files_created += 1
     
@@ -424,107 +457,114 @@ def setup_test_data(output_dir="test_data", cleanup=False):
     for jpeg_file, creation_date in jpeg_files:
         file_path = output_path / jpeg_file
         if create_minimal_jpeg_with_exif(file_path, creation_date):
+            set_file_mtime(file_path, creation_date)
             print(f"  ✓ JPEG with EXIF: {jpeg_file}")
             files_created += 1
     
     # 3. Photos without creation metadata
     no_metadata_files = [
-        "photos/no_metadata/no_date_1.jpg",
-        "photos/no_metadata/no_date_2.jpg",
-        "mixed_content/no_meta.jpg"
+        ("photos/no_metadata/no_date_1.jpg", dates['recent']),
+        ("photos/no_metadata/no_date_2.jpg", dates['recent']),
+        ("mixed_content/no_meta.jpg", dates['recent'])
     ]
     
-    for no_meta_file in no_metadata_files:
+    for no_meta_file, file_date in no_metadata_files:
         file_path = output_path / no_meta_file
         if create_minimal_jpeg_with_exif(file_path, None):
+            set_file_mtime(file_path, file_date)
             print(f"  ✓ JPEG without metadata: {no_meta_file}")
             files_created += 1
     
     # 4. Modern video files (H264/MP4) - with different bitrates for testing
     modern_videos = [
-        ("videos/2023/family/family_dinner.mp4", 2),
-        ("videos/2023/family/family_dinner_720p.mp4", 1),             # Suffix testing
-        ("videos/2023/family/family_dinner_1080p.mp4", 3),            # Suffix testing
-        ("videos/2023/family/kids/kids_playing.mp4", 1),              # In subdirectory
-        ("videos/2023/family/kids/family_dinner.mp4", 1),             # CONFLICT: same name as parent
-        ("videos/2024/events/birthday.mp4", 2),
-        ("videos/2024/events/birthday_4K.mp4", 5),                    # Suffix testing (high bitrate)
-        ("mixed_content/video1.mp4", 1),
-        ("mixed_content/video1_compressed.mp4", 1),                   # Suffix testing
-        ("mixed_content/subfolder1/video_sub1.mp4", 1),               # In subdirectory
-        ("mixed_content/subfolder1/video1.mp4", 1),                   # CONFLICT: same name as parent
-        ("mixed_content/subfolder2/video1.mp4", 1)                    # CONFLICT: same name as parent
+        ("videos/2023/family/family_dinner.mp4", 2, dates['old']),
+        ("videos/2023/family/family_dinner_720p.mp4", 1, dates['old']),             # Suffix testing
+        ("videos/2023/family/family_dinner_1080p.mp4", 3, dates['old']),            # Suffix testing
+        ("videos/2023/family/kids/kids_playing.mp4", 1, dates['old']),              # In subdirectory
+        ("videos/2023/family/kids/family_dinner.mp4", 1, dates['old']),             # CONFLICT: same name as parent
+        ("videos/2024/events/birthday.mp4", 2, dates['recent']),
+        ("videos/2024/events/birthday_4K.mp4", 5, dates['recent']),                    # Suffix testing (high bitrate)
+        ("mixed_content/video1.mp4", 1, dates['recent']),
+        ("mixed_content/video1_compressed.mp4", 1, dates['recent']),                   # Suffix testing
+        ("mixed_content/subfolder1/video_sub1.mp4", 1, dates['recent']),               # In subdirectory
+        ("mixed_content/subfolder1/video1.mp4", 1, dates['recent']),                   # CONFLICT: same name as parent
+        ("mixed_content/subfolder2/video1.mp4", 1, dates['recent'])                    # CONFLICT: same name as parent
     ]
     
-    for video_file, duration in modern_videos:
+    for video_file, duration, file_date in modern_videos:
         file_path = output_path / video_file
         if create_minimal_mp4(file_path, duration):
+            set_file_mtime(file_path, file_date)
             print(f"  ✓ Modern video (MP4/H264): {video_file}")
             files_created += 1
     
     # 5. Legacy video format
     legacy_videos = [
-        "videos/legacy/old_video.avi",
-        "videos/legacy/ancient_clip.avi"
+        ("videos/legacy/old_video.avi", dates['older']),
+        ("videos/legacy/ancient_clip.avi", dates['older'])
     ]
     
-    for legacy_video in legacy_videos:
+    for legacy_video, file_date in legacy_videos:
         file_path = output_path / legacy_video
         if create_legacy_avi(file_path):
+            set_file_mtime(file_path, file_date)
             print(f"  ✓ Legacy video (AVI/MJPEG): {legacy_video}")
             files_created += 1
     
     # 6. Corrupted video files
     corrupted_videos = [
-        "videos/corrupted/broken1.mp4",
-        "videos/corrupted/broken2.avi"
+        ("videos/corrupted/broken1.mp4", dates['recent']),
+        ("videos/corrupted/broken2.avi", dates['recent'])
     ]
     
-    for corrupted_video in corrupted_videos:
+    for corrupted_video, file_date in corrupted_videos:
         file_path = output_path / corrupted_video
         if create_corrupted_file(file_path, 'video'):
+            set_file_mtime(file_path, file_date)
             print(f"  ✓ Corrupted video: {corrupted_video}")
             files_created += 1
     
     # 7. Corrupted photo files
     corrupted_photos = [
-        "photos/no_metadata/corrupted.jpg",
-        "mixed_content/broken.jpg"
+        ("photos/no_metadata/corrupted.jpg", dates['recent']),
+        ("mixed_content/broken.jpg", dates['recent'])
     ]
     
-    for corrupted_photo in corrupted_photos:
+    for corrupted_photo, file_date in corrupted_photos:
         file_path = output_path / corrupted_photo
         if create_corrupted_file(file_path, 'photo'):
+            set_file_mtime(file_path, file_date)
             print(f"  ✓ Corrupted photo: {corrupted_photo}")
             files_created += 1
     
     # 8. System/document files
     system_files = [
-        ("documents/readme.txt", "This is a test document file.\nCreated for immich_tools testing.\n"),
-        ("documents/report.pdf", "Fake PDF content - not a real PDF file.\n"),
-        ("system_files/.DS_Store", "Fake macOS metadata file\n"),
-        ("system_files/Thumbs.db", "Fake Windows thumbnail cache\n"),
-        ("mixed_content/notes.txt", "Mixed content directory notes\n"),
-        ("mixed_content/subfolder1/notes_sub1.txt", "Notes in subfolder 1\n"),
-        ("mixed_content/subfolder1/notes.txt", "CONFLICT: Same name as parent notes\n"),  # CONFLICT
-        ("mixed_content/subfolder2/notes_sub2.txt", "Notes in subfolder 2\n"),
-        ("mixed_content/subfolder2/notes.txt", "CONFLICT: Same name as parent notes\n"),  # CONFLICT
-        ("photos/2023/summer/info.txt", "Photo session info\n"),
-        ("photos/2023/summer/camera1/camera1_info.txt", "Camera 1 session info\n"),
-        ("photos/2023/summer/camera1/info.txt", "CONFLICT: Camera 1 general info\n"),    # CONFLICT
-        ("photos/2023/summer/camera2/camera2_info.txt", "Camera 2 session info\n"),
-        ("photos/2023/summer/camera2/info.txt", "CONFLICT: Camera 2 general info\n"),    # CONFLICT
-        ("photos/2024/vacation/day1/day1_log.txt", "Day 1 vacation log\n"),
-        ("photos/raw_files/canon/canon_settings.txt", "Canon camera settings\n"),
-        ("photos/raw_files/nikon/nikon_settings.txt", "Nikon camera settings\n"),
-        ("videos/2023/family/kids/kids_notes.txt", "Notes about kids videos\n")
+        ("documents/readme.txt", "This is a test document file.\nCreated for immich_tools testing.\n", dates['recent']),
+        ("documents/report.pdf", "Fake PDF content - not a real PDF file.\n", dates['recent']),
+        ("system_files/.DS_Store", "Fake macOS metadata file\n", dates['recent']),
+        ("system_files/Thumbs.db", "Fake Windows thumbnail cache\n", dates['recent']),
+        ("mixed_content/notes.txt", "Mixed content directory notes\n", dates['recent']),
+        ("mixed_content/subfolder1/notes_sub1.txt", "Notes in subfolder 1\n", dates['recent']),
+        ("mixed_content/subfolder1/notes.txt", "CONFLICT: Same name as parent notes\n", dates['recent']),  # CONFLICT
+        ("mixed_content/subfolder2/notes_sub2.txt", "Notes in subfolder 2\n", dates['recent']),
+        ("mixed_content/subfolder2/notes.txt", "CONFLICT: Same name as parent notes\n", dates['recent']),  # CONFLICT
+        ("photos/2023/summer/info.txt", "Photo session info\n", dates['old']),
+        ("photos/2023/summer/camera1/camera1_info.txt", "Camera 1 session info\n", dates['old']),
+        ("photos/2023/summer/camera1/info.txt", "CONFLICT: Camera 1 general info\n", dates['old']),    # CONFLICT
+        ("photos/2023/summer/camera2/camera2_info.txt", "Camera 2 session info\n", dates['old']),
+        ("photos/2023/summer/camera2/info.txt", "CONFLICT: Camera 2 general info\n", dates['old']),    # CONFLICT
+        ("photos/2024/vacation/day1/day1_log.txt", "Day 1 vacation log\n", dates['recent']),
+        ("photos/raw_files/canon/canon_settings.txt", "Canon camera settings\n", dates['old']),
+        ("photos/raw_files/nikon/nikon_settings.txt", "Nikon camera settings\n", dates['old']),
+        ("videos/2023/family/kids/kids_notes.txt", "Notes about kids videos\n", dates['old'])
     ]
     
-    for sys_file, content in system_files:
+    for sys_file, content, file_date in system_files:
         file_path = output_path / sys_file
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(content)
+            set_file_mtime(file_path, file_date)
             print(f"  ✓ System file: {sys_file}")
             files_created += 1
         except Exception as e:
@@ -591,6 +631,7 @@ Use this test data to verify all immich_tools functionality.
     try:
         with open(summary_path, 'w', encoding='utf-8') as f:
             f.write(summary_content)
+        set_file_mtime(summary_path, dates['recent'])
         files_created += 1
     except Exception as e:
         print(f"  ✗ Failed to create summary: {e}")

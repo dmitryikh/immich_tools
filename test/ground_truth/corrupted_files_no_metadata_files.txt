@@ -1,6 +1,6 @@
 # List of files without creation_date metadata
 # Found 26 files
-# Created: 2025-10-26 13:43:58
+# Created: 2024-01-15 10:30:00
 #
 # Format: file_path | type | size | duration | bitrate | resolution | codec | potential_creation_date
 #====================================================================================================
@@ -14,22 +14,22 @@
 # IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2024-01-01 00:00:00 [from path]
 /Users/dmitry/code/immich_tools/test/test_data/photos/2024/vacation/DSC_001.dng
 
-# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2023-03-20 10:15:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/CR3_001.dng
 
-# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2023-03-20 10:15:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/CR3_002.dng
 
-# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2023-03-20 10:15:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/canon/IMG_001.dng
 
-# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2023-03-20 10:15:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/IMG_002.dng
 
-# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2023-03-20 10:15:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/NEF_001.dng
 
-# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2023-03-20 10:15:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/nikon/NEF_002.dng
 
 # VIDEO | 2.4 KB | 00:02 | 9.7 kbit/s | 320x240 | h264 | Potential date: 2023-01-01 00:00:00 [from path]
@@ -47,40 +47,40 @@
 # VIDEO | 3.5 KB | 00:05 | 5.7 kbit/s | 320x240 | h264 | Potential date: 2024-01-01 00:00:00 [from path]
 /Users/dmitry/code/immich_tools/test/test_data/videos/2024/events/birthday_4K.mp4
 
-# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | Potential date: 2025-10-26 13:43:57 [from mtime]
+# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | Potential date: 2024-06-15 14:30:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/video1.mp4
 
-# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | Potential date: 2025-10-26 13:43:57 [from mtime]
+# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | Potential date: 2024-06-15 14:30:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder1/video_sub1.mp4
 
-# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | Potential date: 2025-10-26 13:43:57 [from mtime]
+# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | Potential date: 2024-06-15 14:30:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/mixed_content/subfolder2/video1.mp4
 
-# IMAGE | 823.0 B | N/A | N/A | 100x100 | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 823.0 B | N/A | N/A | 100x100 | N/A | Potential date: 2024-06-15 14:30:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/photos/no_metadata/no_date_1.jpg
 
-# IMAGE | 823.0 B | N/A | N/A | 100x100 | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 823.0 B | N/A | N/A | 100x100 | N/A | Potential date: 2024-06-15 14:30:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/photos/no_metadata/no_date_2.jpg
 
-# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2023-03-20 10:15:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/IMG_001.dng
 
-# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 50.0 B | N/A | N/A | N/A | N/A | Potential date: 2023-03-20 10:15:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/photos/raw_files/IMG_002.dng
 
-# VIDEO | 14.6 KB | 00:01 | 119.3 kbit/s | 160x120 | mjpeg | Potential date: 2025-10-26 13:43:57 [from mtime]
+# VIDEO | 14.6 KB | 00:01 | 119.3 kbit/s | 160x120 | mjpeg | Potential date: 2022-12-25 16:45:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/videos/legacy/ancient_clip.avi
 
-# VIDEO | 14.6 KB | 00:01 | 119.3 kbit/s | 160x120 | mjpeg | Potential date: 2025-10-26 13:43:57 [from mtime]
+# VIDEO | 14.6 KB | 00:01 | 119.3 kbit/s | 160x120 | mjpeg | Potential date: 2022-12-25 16:45:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/videos/legacy/old_video.avi
 
-# IMAGE | 823.0 B | N/A | N/A | 100x100 | N/A | Potential date: 2025-10-26 13:43:56 [from mtime]
+# IMAGE | 823.0 B | N/A | N/A | 100x100 | N/A | Potential date: 2024-06-15 14:30:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/mixed_content/no_meta.jpg
 
-# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | Potential date: 2025-10-26 13:43:57 [from mtime]
+# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | Potential date: 2024-06-15 14:30:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/mixed_content/video1.mp4
 
-# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | Potential date: 2025-10-26 13:43:57 [from mtime]
+# VIDEO | 2.0 KB | 00:01 | 16.4 kbit/s | 320x240 | h264 | Potential date: 2024-06-15 14:30:00 [from mtime]
 /Users/dmitry/code/immich_tools/test/test_data/mixed_content/video1_compressed.mp4
 
 #====================================================================================================

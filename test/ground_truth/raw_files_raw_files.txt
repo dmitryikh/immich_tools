@@ -1,6 +1,6 @@
 # List of RAW image files
 # Found 9 files
-# Created: 2025-10-26 13:43:58
+# Created: 2024-01-15 10:30:00
 #
 # Format: file_path | type | size | duration | bitrate | resolution | codec
 #====================================================================================================

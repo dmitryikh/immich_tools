@@ -71,7 +71,7 @@ def format_duration(duration):
     else:
         return f"{minutes:02d}:{seconds:02d}"
 
-def write_export_file(output_file, file_list, export_type, short_format=False, **kwargs):
+def write_export_file(output_file, file_list, export_type, short_format=False, current_time=None, **kwargs):
     """
     Unified function to write export files with consistent formatting
     
@@ -80,8 +80,12 @@ def write_export_file(output_file, file_list, export_type, short_format=False, *
         file_list: List of file records
         export_type: Type of export for header (e.g., "high bitrate files", "RAW files")
         short_format: Whether to use short format (paths only)
+        current_time: datetime object for deterministic output (default: now)
         **kwargs: Additional parameters for specific export types
     """
+    if current_time is None:
+        current_time = datetime.datetime.now()
+        
     with open(output_file, 'w', encoding='utf-8') as f:
         total_size = 0
         video_count = 0
@@ -91,7 +95,7 @@ def write_export_file(output_file, file_list, export_type, short_format=False, *
             # Header for full format
             f.write(f"# List of {export_type}\n")
             f.write(f"# Found {len(file_list)} files\n")
-            f.write(f"# Created: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"# Created: {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             
             # Add specific criteria info
             if 'min_bitrate' in kwargs:
@@ -323,7 +327,7 @@ def query_longest_files(db_path, limit=20):
     
     conn.close()
 
-def export_raw_files(db_path, output_file, short_format=False):
+def export_raw_files(db_path, output_file, short_format=False, current_time=None):
     """Exports RAW image files to text file"""
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -361,7 +365,7 @@ def export_raw_files(db_path, output_file, short_format=False):
     results = sort_files_by_directory_depth(results)
     
     # Use unified export function
-    write_export_file(output_file, results, "RAW image files", short_format)
+    write_export_file(output_file, results, "RAW image files", short_format, current_time)
     
     conn.close()
     
@@ -394,7 +398,7 @@ def export_raw_files(db_path, output_file, short_format=False):
     if len(results) > sum(len(files[:2]) for files in extensions_found.values()):
         print(f"  ... and more files")
 
-def export_old_video_files(db_path, output_file, short_format=False):
+def export_old_video_files(db_path, output_file, short_format=False, current_time=None):
     """Exports video files with outdated codecs or formats to text file"""
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -458,7 +462,7 @@ def export_old_video_files(db_path, output_file, short_format=False):
         converted_row = (file_path, file_name, file_size, media_type, duration, bit_rate, resolution, codec_with_format)
         converted_results.append(converted_row)
     
-    write_export_file(output_file, converted_results, "video files with outdated codecs/formats", short_format)
+    write_export_file(output_file, converted_results, "video files with outdated codecs/formats", short_format, current_time)
     
     conn.close()
     
@@ -523,7 +527,7 @@ def export_old_video_files(db_path, output_file, short_format=False):
         if total_codec_files + total_format_files > len(results):
             print(f"  (Some files have both outdated codec and format)")
 
-def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50, short_format=False):
+def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50, short_format=False, current_time=None):
     """Exports list of files by given criteria to text file"""
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -562,7 +566,7 @@ def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50,
     
     # Use unified export function
     write_export_file(output_file, results, f"video files with bitrate ≥{min_bitrate_mbps} Mbit/s and size ≥{min_size_mb} MB", 
-                      short_format, min_bitrate=min_bitrate_mbps, min_size=min_size_mb)
+                      short_format, current_time, min_bitrate=min_bitrate_mbps, min_size=min_size_mb)
     
     conn.close()
     
@@ -584,7 +588,7 @@ def export_files_list(db_path, output_file, min_bitrate_mbps=15, min_size_mb=50,
     if len(results) > 5:
         print(f"  ... and {len(results) - 5} more files")
 
-def export_files_with_suffix(db_path, output_file, suffix, short_format=False):
+def export_files_with_suffix(db_path, output_file, suffix, short_format=False, current_time=None):
     """Exports files with given suffix that have corresponding original files without suffix in same directory"""
     
     conn = sqlite3.connect(db_path)
@@ -652,6 +656,9 @@ def export_files_with_suffix(db_path, output_file, suffix, short_format=False):
     suffix_files = sort_files_by_directory_depth(suffix_files)
     
     # Write to file
+    if current_time is None:
+        current_time = datetime.datetime.now()
+        
     with open(output_file, 'w', encoding='utf-8') as f:
         total_size = 0
         video_count = 0
@@ -661,7 +668,7 @@ def export_files_with_suffix(db_path, output_file, suffix, short_format=False):
             # Header for full format
             f.write(f"# List of files with suffix '{suffix}' that have corresponding originals\n")
             f.write(f"# Found {len(suffix_files)} files\n")
-            f.write(f"# Created: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"# Created: {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write("#\n")
             f.write("# Format: file_path | type | size | duration | bitrate | resolution | codec | original_base\n")
             f.write("#" + "="*100 + "\n\n")
@@ -717,7 +724,7 @@ def export_files_with_suffix(db_path, output_file, suffix, short_format=False):
     if len(suffix_files) > 5:
         print(f"  ... and {len(suffix_files) - 5} more files")
 
-def export_no_metadata_files(db_path, output_file, short_format=False):
+def export_no_metadata_files(db_path, output_file, short_format=False, current_time=None):
     """Exports files without creation_date metadata to text file"""
     import os
     from datetime import datetime
@@ -782,7 +789,7 @@ def export_no_metadata_files(db_path, output_file, short_format=False):
     
     # Use unified export function with enhanced data
     write_export_file(output_file, enhanced_results, "files without creation_date metadata", 
-                     short_format, include_potential_dates=True)
+                     short_format, current_time, include_potential_dates=True)
     
     conn.close()
     
@@ -903,7 +910,7 @@ def determine_original_and_copies(files, duplicate_patterns=None):
     
     return original, copies
 
-def export_duplicates_list(db_path, output_file, path_pattern=None, short_format=False, duplicate_patterns=None):
+def export_duplicates_list(db_path, output_file, path_pattern=None, short_format=False, duplicate_patterns=None, current_time=None):
     """Exports duplicate list to text file"""
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -926,6 +933,9 @@ def export_duplicates_list(db_path, output_file, path_pattern=None, short_format
         conn.close()
         return
     
+    if current_time is None:
+        current_time = datetime.datetime.now()
+    
     with open(output_file, 'w', encoding='utf-8') as f:
         # Header
         if not short_format:
@@ -933,7 +943,7 @@ def export_duplicates_list(db_path, output_file, path_pattern=None, short_format
             f.write(f"# Found {len(groups)} duplicate groups\n")
             if path_pattern:
                 f.write(f"# Filtered by pattern: {path_pattern}\n")
-            f.write(f"# Created: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"# Created: {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write("#\n")
             f.write("#" + "="*100 + "\n\n")
         
@@ -1035,7 +1045,7 @@ def export_duplicates_list(db_path, output_file, path_pattern=None, short_format
     print(f"Format: {'Short (paths only)' if short_format else 'Full (with metadata)'}")
     print(f"Space that can be freed: {Fore.RED}{format_file_size(total_wasted_space)}{Style.RESET_ALL}")
 
-def export_directory_structure(db_path, output_file, console_output=False):
+def export_directory_structure(db_path, output_file, console_output=False, current_time=None):
     """
     Exports directory structure analysis to text file
     Shows nested directory structure with file counts and sizes
@@ -1262,9 +1272,12 @@ def export_directory_structure(db_path, output_file, console_output=False):
     
     # Only write to file if output_file is provided
     if output_file:
+        if current_time is None:
+            current_time = datetime.datetime.now()
+            
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(f"# Directory Structure Analysis\n")
-            f.write(f"# Created: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"# Created: {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"# Total directories analyzed: {len(all_dirs)}\n")
             f.write("#\n")
             f.write("# Format: [subdirs count, files breakdown, total size]\n")
@@ -1273,6 +1286,10 @@ def export_directory_structure(db_path, output_file, console_output=False):
             
             exported_count = 0
             total_size_all = 0
+            
+            # Connect to database for root directory check
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
             
             # Start from root directories (those without parents in our tree)
             root_dirs = []
@@ -1303,6 +1320,8 @@ def export_directory_structure(db_path, output_file, console_output=False):
             f.write(f"# SUMMARY:\n")
             f.write(f"# Directories exported: {exported_count}\n")
             f.write(f"# Total size: {format_file_size(total_size_all)}\n")
+        
+            conn.close()
         
         if output_file:
             print(f"\n{Fore.GREEN}✅ Directory structure exported to: {output_file}{Style.RESET_ALL}")
@@ -1453,8 +1472,23 @@ def main():
         action='store_true',
         help='Export only file names (short format)'
     )
+    parser.add_argument(
+        '--now-time',
+        metavar='DATETIME',
+        help='Current time for deterministic output (format: YYYY-MM-DD HH:MM:SS)'
+    )
     
     args = parser.parse_args()
+    
+    # Parse current time parameter for deterministic output
+    if args.now_time:
+        try:
+            current_time = datetime.datetime.strptime(args.now_time, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            print(f"{Fore.RED}Error: Invalid --now-time format. Use: YYYY-MM-DD HH:MM:SS{Style.RESET_ALL}")
+            return
+    else:
+        current_time = datetime.datetime.now()
     
     # Check database existence
     try:
@@ -1512,23 +1546,23 @@ def main():
     # Perform the requested export
     if args.min_bitrate:
         # Use default min size of 50MB for high bitrate export
-        export_files_list(args.database, args.export_list, args.min_bitrate, 50, args.short)
+        export_files_list(args.database, args.export_list, args.min_bitrate, 50, args.short, current_time)
     elif args.suffix:
-        export_files_with_suffix(args.database, args.export_list, args.suffix, args.short)
+        export_files_with_suffix(args.database, args.export_list, args.suffix, args.short, current_time)
     elif args.export_no_metadata:
-        export_no_metadata_files(args.database, args.export_list, args.short)
+        export_no_metadata_files(args.database, args.export_list, args.short, current_time)
     elif args.export_raw:
-        export_raw_files(args.database, args.export_list, args.short)
+        export_raw_files(args.database, args.export_list, args.short, current_time)
     elif args.export_old_video:
-        export_old_video_files(args.database, args.export_list, args.short)
+        export_old_video_files(args.database, args.export_list, args.short, current_time)
     elif args.export_duplicates:
         # Use first pattern for filtering, all patterns for duplicate detection
         filter_pattern = args.export_pattern[0] if args.export_pattern else None
         duplicate_patterns = args.export_pattern if args.export_pattern else None
-        export_duplicates_list(args.database, args.export_list, filter_pattern, args.short, duplicate_patterns)
+        export_duplicates_list(args.database, args.export_list, filter_pattern, args.short, duplicate_patterns, current_time)
     elif args.export_dirs:
         output_file = args.export_list if args.export_list else None
-        export_directory_structure(args.database, output_file, args.console)
+        export_directory_structure(args.database, output_file, args.console, current_time)
 
 if __name__ == "__main__":
     main()

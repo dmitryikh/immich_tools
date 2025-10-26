@@ -1,7 +1,7 @@
 {
   "test_name": "export_dirs_console",
-  "timestamp": "2025-10-26T13:43:58.819172",
-  "cmd": "/Users/dmitry/code/immich_tools/venv/bin/python media_query.py --database test/test_data/test_analysis.db --export-dirs --console",
+  "timestamp": "2025-10-26T14:08:03.119020",
+  "cmd": "/Users/dmitry/code/immich_tools/venv/bin/python media_query.py --database test/test_data/test_analysis.db --export-dirs --console --now-time 2024-01-15 10:30:00",
   "returncode": 0,
   "output_files": []
 }
