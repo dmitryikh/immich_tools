@@ -34,8 +34,14 @@ IMAGE_EXTENSIONS = {
     '.webp', '.heic', '.heif'
 } | RAW_EXTENSIONS
 
+# Supported audio formats
+AUDIO_EXTENSIONS = {
+    '.mp3', '.m4a', '.aac', '.flac', '.wav', '.ogg', 
+    '.wma', '.opus', '.ape', '.alac', '.aif', '.aiff'
+}
+
 # All supported formats
-SUPPORTED_EXTENSIONS = VIDEO_EXTENSIONS | IMAGE_EXTENSIONS
+SUPPORTED_EXTENSIONS = VIDEO_EXTENSIONS | IMAGE_EXTENSIONS | AUDIO_EXTENSIONS
 
 def setup_logging(log_file="photo_converter.log", log_level=logging.INFO):
     """Sets up logging to file and console"""

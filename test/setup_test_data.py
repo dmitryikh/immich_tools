@@ -8,8 +8,10 @@ Creates a test directory structure with various types of media files:
 - Photos without creation metadata
 - Modern video (H264/MP4)
 - Legacy video format (AVI/MJPEG)
+- Audio files (MP3, M4A, FLAC) with metadata
 - Corrupted video file
 - Corrupted photo file
+- Corrupted audio file
 - System files (.txt, .pdf)
 
 Usage:
@@ -268,6 +270,79 @@ def create_legacy_avi(output_path):
         return False
 
 
+def create_minimal_audio(output_path, duration_seconds=3, metadata=None):
+    """
+    Create a minimal audio file using ffmpeg if available.
+    Supports MP3, M4A, FLAC formats with optional metadata.
+    
+    Args:
+        output_path: Path to output audio file
+        duration_seconds: Duration of the audio file
+        metadata: Dict with audio metadata (artist, album, title, etc.)
+    """
+    file_ext = Path(output_path).suffix.lower()
+    
+    # Map extensions to codecs
+    codec_map = {
+        '.mp3': 'libmp3lame',
+        '.m4a': 'aac',
+        '.flac': 'flac',
+        '.ogg': 'libvorbis',
+        '.wav': 'pcm_s16le'
+    }
+    
+    codec = codec_map.get(file_ext, 'libmp3lame')
+    
+    # Try using ffmpeg first
+    try:
+        # Build ffmpeg command
+        cmd = [
+            'ffmpeg', '-f', 'lavfi', '-i', f'sine=frequency=440:duration={duration_seconds}',
+            '-c:a', codec
+        ]
+        
+        # Add metadata if provided
+        if metadata:
+            for key, value in metadata.items():
+                cmd.extend(['-metadata', f'{key}={value}'])
+        
+        cmd.extend(['-y', str(output_path)])
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0:
+            return True
+        else:
+            print(f"{Fore.YELLOW}ffmpeg failed for audio, creating minimal structure{Style.RESET_ALL}")
+            
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        print(f"{Fore.YELLOW}ffmpeg not available, creating minimal audio structure{Style.RESET_ALL}")
+    
+    # Fallback: create minimal MP3 structure (ID3v2 + minimal audio frame)
+    if file_ext == '.mp3':
+        # Minimal valid MP3 with ID3v2 tag
+        mp3_data = bytearray([
+            # ID3v2 header
+            0x49, 0x44, 0x33,  # "ID3"
+            0x03, 0x00,  # Version 2.3
+            0x00,  # Flags
+            0x00, 0x00, 0x00, 0x00,  # Size (0 for minimal)
+            
+            # Minimal MP3 frame (MPEG-1 Layer 3, 44.1kHz, 128kbps)
+            0xFF, 0xFB, 0x90, 0x00,  # Frame sync and header
+        ] + [0x00] * 100)  # Minimal frame data
+        
+        try:
+            with open(output_path, 'wb') as f:
+                f.write(mp3_data)
+            return True
+        except Exception as e:
+            print(f"{Fore.RED}Error creating MP3 file: {e}{Style.RESET_ALL}")
+            return False
+    
+    return False
+
+
 def create_corrupted_file(output_path, base_type='video'):
     """
     Create a corrupted file by writing invalid data with correct extension.
@@ -275,7 +350,22 @@ def create_corrupted_file(output_path, base_type='video'):
     """
     file_ext = Path(output_path).suffix.lower()
     
-    if base_type == 'video' or file_ext in ['.mp4', '.avi', '.mov', '.mkv']:
+    if base_type == 'audio' or file_ext in ['.mp3', '.m4a', '.flac', '.ogg', '.wav']:
+        # Create corrupted audio file - valid header but corrupted data
+        corrupted_data = bytes([
+            # ID3v2 header for MP3-like files
+            0x49, 0x44, 0x33,  # "ID3"
+            0x03, 0x00,  # Version
+            0x00,  # Flags
+            0x00, 0x00, 0x00, 0x0A,  # Size
+            # Random corrupted data
+            0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE,
+            0xFF, 0xFF, 0x00, 0x00, 0x12, 0x34, 0x56, 0x78,
+            # Invalid frame sync patterns
+            0xFF, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11,
+        ] + [0xFF, 0x00] * 50)  # Alternating pattern that's invalid
+    elif base_type == 'video' or file_ext in ['.mp4', '.avi', '.mov', '.mkv']:
         # Create corrupted video file - start with some valid-looking headers then corrupt
         if file_ext == '.mp4':
             # Start with partial MP4 header, then corrupt it
@@ -371,6 +461,11 @@ def setup_test_data(output_dir="test_data", cleanup=False):
         "videos/2024/events",
         "videos/legacy",
         "videos/corrupted",
+        "audio/2023/music",
+        "audio/2023/music/album1",     # Album subdirectory
+        "audio/2024/podcasts",
+        "audio/audiobooks",
+        "audio/corrupted",
         "documents",
         "system_files",
         "mixed_content",
@@ -398,7 +493,11 @@ def setup_test_data(output_dir="test_data", cleanup=False):
         'videos/2023/family': dates['old'],
         'videos/2024/events': dates['recent'],
         'videos/legacy': dates['older'],  # Old legacy formats
-        'videos/corrupted': dates['recent'],  # Recent corruption issues
+        'videos/corrupted': dates['recent'],  # Test corrupted files
+        'audio/2023/music': dates['old'],
+        'audio/2024/podcasts': dates['recent'],
+        'audio/audiobooks': dates['older'],
+        'audio/corrupted': dates['recent'],
         'mixed_content': dates['recent'],
         'documents': dates['recent'],
         'system_files': dates['recent']
@@ -537,7 +636,92 @@ def setup_test_data(output_dir="test_data", cleanup=False):
             print(f"  ✓ Corrupted photo: {corrupted_photo}")
             files_created += 1
     
-    # 8. System/document files
+    # 8. Audio files with metadata
+    audio_files = [
+        ("audio/2023/music/track01.mp3", 3, {
+            'artist': 'Test Artist',
+            'album': 'Test Album 2023',
+            'title': 'Track 01',
+            'genre': 'Rock',
+            'date': '2023'
+        }, dates['old']),
+        ("audio/2023/music/track02.mp3", 4, {
+            'artist': 'Test Artist',
+            'album': 'Test Album 2023',
+            'title': 'Track 02',
+            'genre': 'Rock',
+            'date': '2023'
+        }, dates['old']),
+        ("audio/2023/music/album1/song01.m4a", 3, {
+            'artist': 'Album Artist',
+            'album': 'Album 1',
+            'title': 'Song 01',
+            'genre': 'Pop',
+            'date': '2023'
+        }, dates['old']),
+        ("audio/2023/music/album1/song02.m4a", 3, {
+            'artist': 'Album Artist',
+            'album': 'Album 1',
+            'title': 'Song 02',
+            'genre': 'Pop',
+            'date': '2023'
+        }, dates['old']),
+        ("audio/2024/podcasts/episode01.mp3", 5, {
+            'artist': 'Podcast Host',
+            'album': 'Tech Podcast',
+            'title': 'Episode 01 - AI Discussion',
+            'genre': 'Podcast',
+            'date': '2024'
+        }, dates['recent']),
+        ("audio/2024/podcasts/episode02.mp3", 5, {
+            'artist': 'Podcast Host',
+            'album': 'Tech Podcast',
+            'title': 'Episode 02 - Cloud Computing',
+            'genre': 'Podcast',
+            'date': '2024'
+        }, dates['recent']),
+        ("audio/audiobooks/chapter01.m4a", 10, {
+            'artist': 'Narrator Name',
+            'album': 'Classic Novel',
+            'title': 'Chapter 01',
+            'genre': 'Audiobook',
+            'date': '2022'
+        }, dates['older']),
+        ("audio/audiobooks/chapter02.m4a", 10, {
+            'artist': 'Narrator Name',
+            'album': 'Classic Novel',
+            'title': 'Chapter 02',
+            'genre': 'Audiobook',
+            'date': '2022'
+        }, dates['older']),
+        ("mixed_content/music.mp3", 3, {
+            'artist': 'Mixed Artist',
+            'title': 'Mixed Track',
+            'date': '2024'
+        }, dates['recent']),
+    ]
+    
+    for audio_file, duration, metadata, file_date in audio_files:
+        file_path = output_path / audio_file
+        if create_minimal_audio(file_path, duration, metadata):
+            set_file_mtime(file_path, file_date)
+            print(f"  ✓ Audio file: {audio_file}")
+            files_created += 1
+    
+    # 9. Corrupted audio files
+    corrupted_audio = [
+        ("audio/corrupted/broken1.mp3", dates['recent']),
+        ("audio/corrupted/broken2.m4a", dates['recent'])
+    ]
+    
+    for corrupted_file, file_date in corrupted_audio:
+        file_path = output_path / corrupted_file
+        if create_corrupted_file(file_path, 'audio'):
+            set_file_mtime(file_path, file_date)
+            print(f"  ✓ Corrupted audio: {corrupted_file}")
+            files_created += 1
+    
+    # 10. System/document files
     system_files = [
         ("documents/readme.txt", "This is a test document file.\nCreated for immich_tools testing.\n", dates['recent']),
         ("documents/report.pdf", "Fake PDF content - not a real PDF file.\n", dates['recent']),
@@ -583,12 +767,19 @@ Total files: {files_created}
 - photos/2024/vacation/ - Recent JPEG photos + RAW files
   - photos/2024/vacation/day1/ - Photos from specific day (for move_to_dirs testing)
 - photos/raw_files/ - DNG (RAW) photo files
+  - photos/raw_files/canon/ - Canon RAW files
+  - photos/raw_files/nikon/ - Nikon RAW files
 - photos/no_metadata/ - JPEG photos without creation dates + corrupted photo
 - videos/2023/family/ - Modern MP4 videos
   - videos/2023/family/kids/ - Kids videos (for move_to_dirs testing)
 - videos/2024/events/ - Modern MP4 videos
 - videos/legacy/ - Old AVI/MJPEG videos
 - videos/corrupted/ - Corrupted video files
+- audio/2023/music/ - Music files (MP3) with metadata
+  - audio/2023/music/album1/ - Album-specific songs (M4A)
+- audio/2024/podcasts/ - Podcast episodes (MP3)
+- audio/audiobooks/ - Audiobook chapters (M4A)
+- audio/corrupted/ - Corrupted audio files
 - documents/ - Text and PDF files
 - system_files/ - System metadata files (.DS_Store, Thumbs.db)
 - mixed_content/ - Mixed file types for complex scenarios
@@ -601,7 +792,8 @@ Total files: {files_created}
 - RAW photos (DNG format)
 - Modern videos (MP4/H264)
 - Legacy videos (AVI/MJPEG)
-- Corrupted media files
+- Audio files (MP3, M4A) with artist/album/title metadata
+- Corrupted media files (photos, videos, audio)
 - System/document files
 
 ## Testing Features:
@@ -609,20 +801,23 @@ Total files: {files_created}
 - Files with same names in different subdirectories (conflict testing)
 - Files with various suffixes (_edited, _720p, _HDR, etc.) for suffix testing
 - Videos with different durations (simulating different bitrates)
+- Audio files with complete metadata (artist, album, title, genre, date)
 - Mixed content directories for complex scenarios
 - Various date ranges for metadata testing
 - RAW files organized by camera brand (canon/nikon subdirectories)
 - Comprehensive conflict scenarios for move_to_dirs.py testing
 
 ## Test Scenarios Covered:
-1. **media_analyzer.py**: All file types, corrupted files, various formats
+1. **media_analyzer.py**: All file types (photos, videos, audio), corrupted files, various formats
 2. **media_query.py**: Directory structure analysis, size filtering, file categorization
 3. **move_to_dirs.py**: Subdirectories, name conflicts, mixed file types
 4. **video_encoder.py**: Modern vs legacy formats, various durations
 5. **photo_converter.py**: RAW files, JPEG with/without metadata
-6. **Suffix testing**: Files with _720p, _edited, _HDR, _thumb, etc. suffixes
-7. **High bitrate testing**: Videos with longer durations (higher bitrate simulation)
-8. **Duplicate detection**: Files with same names in different locations
+6. **Audio metadata**: Artist, album, title extraction and storage
+7. **Suffix testing**: Files with _720p, _edited, _HDR, _thumb, etc. suffixes
+8. **High bitrate testing**: Videos with longer durations (higher bitrate simulation)
+9. **Duplicate detection**: Files with same names in different locations
+10. **Corruption detection**: Corrupted files for all media types (photo, video, audio)
 
 Use this test data to verify all immich_tools functionality.
 """

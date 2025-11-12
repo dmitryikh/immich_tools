@@ -124,7 +124,6 @@ def set_video_metadata_datetime(file_path: str, creation_time: datetime, dry_run
         ]
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        print(result.stderr)
         return result.returncode == 0
         
     except Exception:
@@ -182,6 +181,119 @@ def get_image_metadata(file_path: str) -> dict:
         
     except Exception:
         return {}
+
+
+def get_audio_metadata(file_path: str) -> dict:
+    """
+    Get audio metadata using ffprobe via Docker
+    
+    Args:
+        file_path: Path to the audio file
+        
+    Returns:
+        dict: Dictionary with audio metadata including artist, album, title, duration, etc.
+    
+    Raises:
+        VideoMetadataError: For audio metadata related errors (reusing video exceptions)
+    """
+    # Get absolute file path
+    file_path = os.path.abspath(file_path)
+    
+    # Use ffprobe directly to get audio information
+    cmd = [
+        'ffprobe', '-v', 'quiet', '-print_format', 'json',
+        '-show_format', '-show_streams', '-select_streams', 'a:0',
+        file_path
+    ]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode != 0:
+            error_msg = result.stderr.strip() if result.stderr else "ffprobe returned non-zero exit code"
+            raise VideoCorruptedError(f"ffprobe error: {error_msg}")
+            
+        data = json.loads(result.stdout)
+        
+    except subprocess.TimeoutExpired:
+        raise VideoTimeoutError("ffprobe timeout (30s)")
+    except json.JSONDecodeError as e:
+        raise VideoCorruptedError(f"JSON decode error: {str(e)}")
+    except subprocess.SubprocessError as e:
+        raise VideoMetadataError(f"Subprocess error: {str(e)}")
+    
+    # Extract format information
+    format_info = data.get('format', {})
+    
+    # Find first audio stream
+    audio_stream = None
+    for stream in data.get('streams', []):
+        if stream.get('codec_type') == 'audio':
+            audio_stream = stream
+            break
+    
+    if not audio_stream:
+        raise VideoNoStreamError("No audio stream found in file")
+    
+    # Extract basic metadata
+    metadata = {
+        'duration': float(format_info.get('duration', 0)),
+        'codec_name': audio_stream.get('codec_name', ''),
+        'codec_long_name': audio_stream.get('codec_long_name', ''),
+        'bit_rate': int(format_info.get('bit_rate', 0)),
+        'format_name': format_info.get('format_name', ''),
+        'format_long_name': format_info.get('format_long_name', ''),
+        'creation_date': None
+    }
+    
+    # Extract audio-specific tags (artist, album, title, etc.) - excluding images
+    tags = format_info.get('tags', {})
+    audio_metadata = {}
+    
+    # Map common tag names (case-insensitive)
+    tag_mapping = {
+        'artist': ['artist', 'ARTIST'],
+        'album': ['album', 'ALBUM'],
+        'title': ['title', 'TITLE'],
+        'genre': ['genre', 'GENRE'],
+        'date': ['date', 'DATE', 'year', 'YEAR'],
+        'track': ['track', 'TRACK'],
+        'album_artist': ['album_artist', 'ALBUM_ARTIST'],
+        'composer': ['composer', 'COMPOSER'],
+        'comment': ['comment', 'COMMENT']
+    }
+    
+    for key, possible_tags in tag_mapping.items():
+        for tag in possible_tags:
+            if tag in tags and tags[tag]:
+                audio_metadata[key] = tags[tag]
+                break
+    
+    # Store audio-specific metadata in the metadata field
+    if audio_metadata:
+        metadata['audio_metadata'] = audio_metadata
+    
+    # Extract creation date from format tags if available
+    for tag_key in ['creation_time', 'date', 'DATE', 'year', 'YEAR']:
+        if tag_key in tags:
+            try:
+                date_str = tags[tag_key]
+                if date_str and date_str != '0000-00-00T00:00:00.000000Z':
+                    # Try ISO format first
+                    if 'T' in str(date_str):
+                        clean_date = date_str.replace('Z', '').split('.')[0]
+                        creation_date = datetime.fromisoformat(clean_date)
+                        metadata['creation_date'] = creation_date.isoformat()
+                        break
+                    # Try year-only format
+                    elif len(str(date_str)) == 4 and str(date_str).isdigit():
+                        creation_date = datetime(int(date_str), 1, 1)
+                        metadata['creation_date'] = creation_date.isoformat()
+                        break
+            except (ValueError, TypeError):
+                continue
+    
+    return metadata
 
 
 def get_video_metadata(file_path: str) -> dict:

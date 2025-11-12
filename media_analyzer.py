@@ -2,10 +2,10 @@
 """
 Media Analyzer
 
-Program for recursive analysis of video and image files in directory.
+Program for recursive analysis of video, image, and audio files in directory.
 Extracts metadata (codec, resolution, bitrate, duration for videos; 
-EXIF data and resolution for images) using ffprobe and PIL/Pillow
-and saves results to SQLite database.
+EXIF data and resolution for images; artist, album, title for audio) 
+using ffprobe and PIL/Pillow and saves results to SQLite database.
 
 Usage:
 python media_analyzer.py test --database media_analysis.db --workers 16
@@ -32,8 +32,8 @@ from PIL import Image
 from PIL.ExifTags import TAGS
 
 # Import from local library
-from lib.metadata import get_image_metadata, get_video_metadata, VideoMetadataError, VideoCorruptedError, VideoTimeoutError, VideoNoStreamError
-from lib.utils import VIDEO_EXTENSIONS, RAW_EXTENSIONS, IMAGE_EXTENSIONS, SUPPORTED_EXTENSIONS
+from lib.metadata import get_image_metadata, get_video_metadata, get_audio_metadata, VideoMetadataError, VideoCorruptedError, VideoTimeoutError, VideoNoStreamError
+from lib.utils import VIDEO_EXTENSIONS, RAW_EXTENSIONS, IMAGE_EXTENSIONS, AUDIO_EXTENSIONS, SUPPORTED_EXTENSIONS
 
 # Initialize colorama with forced colors for container support
 init(autoreset=True, strip=False)
@@ -59,17 +59,18 @@ class MediaAnalyzer:
                 file_name TEXT NOT NULL,
                 file_size INTEGER,
                 file_hash TEXT,
-                media_type TEXT NOT NULL,  -- 'video' or 'image'
+                media_type TEXT NOT NULL,  -- 'video', 'image', or 'audio'
                 creation_date TIMESTAMP,  -- from metadata if available
-                duration REAL,  -- for videos only
+                duration REAL,  -- for videos and audio
                 width INTEGER,
                 height INTEGER,
-                codec_name TEXT,  -- for videos
-                codec_long_name TEXT,  -- for videos
-                bit_rate INTEGER,  -- for videos
-                frame_rate REAL,  -- for videos
+                codec_name TEXT,  -- for videos and audio
+                codec_long_name TEXT,  -- for videos and audio
+                bit_rate INTEGER,  -- for videos and audio
+                frame_rate REAL,  -- for videos only
                 format_name TEXT,
                 format_long_name TEXT,
+                metadata TEXT,  -- JSON field for additional metadata (e.g., artist, album for audio)
                 is_corrupted BOOLEAN DEFAULT 0,
                 error_message TEXT,
                 analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -203,11 +204,18 @@ class MediaAnalyzer:
             return result is not None
     
     def save_media_info(self, file_path: str, metadata: Dict):
-        """Saves media file information (video or image) to database"""
+        """Saves media file information (video, image, or audio) to database"""
+        import json
+        
         file_stats = os.stat(file_path)
         file_hash = None
         if not metadata.get('is_corrupted') and not self.skip_hash:
             file_hash = self.get_file_hash(file_path)
+        
+        # Extract and serialize audio metadata to JSON if present
+        metadata_json = None
+        if 'audio_metadata' in metadata:
+            metadata_json = json.dumps(metadata['audio_metadata'])
         
         with self.db_lock:
             conn = sqlite3.connect(self.db_path)
@@ -219,8 +227,8 @@ class MediaAnalyzer:
                     media_type, creation_date,
                     duration, width, height, codec_name, codec_long_name,
                     bit_rate, frame_rate, format_name, format_long_name,
-                    is_corrupted, error_message, analyzed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    metadata, is_corrupted, error_message, analyzed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 file_path,
                 os.path.basename(file_path),
@@ -238,6 +246,7 @@ class MediaAnalyzer:
                 metadata.get('frame_rate'),
                 metadata.get('format_name'),
                 metadata.get('format_long_name'),
+                metadata_json,
                 metadata.get('is_corrupted', False),
                 metadata.get('error_message'),
                 datetime.now().isoformat()
@@ -247,7 +256,7 @@ class MediaAnalyzer:
             conn.close()
     
     def find_media_files(self, directory: str, pattern: Optional[str] = None) -> List[str]:
-        """Recursively finds all media files (videos and images) in directory"""
+        """Recursively finds all media files (videos, images, and audio) in directory"""
         media_files = []
         skipped_nonmedia_files = 0
         skipped_pattern_files = 0
@@ -290,7 +299,7 @@ class MediaAnalyzer:
         return media_files
     
     def process_single_file(self, file_path: str, force_reanalyze: bool = False) -> Dict[str, any]:
-        """Processes single media file (video or image) and returns result"""
+        """Processes single media file (video, image, or audio) and returns result"""
         result = {
             'file_path': file_path,
             'processed': False,
@@ -342,6 +351,37 @@ class MediaAnalyzer:
                         'error_message': str(e),
                         'media_type': 'video'
                     }
+            elif file_ext in AUDIO_EXTENSIONS:
+                try:
+                    metadata = get_audio_metadata(file_path)
+                    # Add metadata that MediaAnalyzer expects
+                    metadata['is_corrupted'] = False
+                    metadata['media_type'] = 'audio'
+                    metadata['error_message'] = None
+                except VideoCorruptedError as e:
+                    metadata = {
+                        'is_corrupted': True,
+                        'error_message': str(e),
+                        'media_type': 'audio'
+                    }
+                except VideoTimeoutError as e:
+                    metadata = {
+                        'is_corrupted': True,
+                        'error_message': str(e),
+                        'media_type': 'audio'
+                    }
+                except VideoNoStreamError as e:
+                    metadata = {
+                        'is_corrupted': True,
+                        'error_message': str(e),
+                        'media_type': 'audio'
+                    }
+                except VideoMetadataError as e:
+                    metadata = {
+                        'is_corrupted': True,
+                        'error_message': str(e),
+                        'media_type': 'audio'
+                    }
             elif file_ext in IMAGE_EXTENSIONS:
                 metadata = self.analyze_image_file(file_path)
             else:
@@ -360,10 +400,18 @@ class MediaAnalyzer:
             result['error_message'] = str(e)
             
             # Save error information
+            file_ext = Path(file_path).suffix.lower()
+            if file_ext in VIDEO_EXTENSIONS:
+                media_type = 'video'
+            elif file_ext in AUDIO_EXTENSIONS:
+                media_type = 'audio'
+            else:
+                media_type = 'image'
+            
             error_metadata = {
                 'is_corrupted': True,
                 'error_message': f"Processing error: {str(e)}",
-                'media_type': 'video' if Path(file_path).suffix.lower() in VIDEO_EXTENSIONS else 'image'
+                'media_type': media_type
             }
             try:
                 self.save_media_info(file_path, error_metadata)
@@ -373,7 +421,7 @@ class MediaAnalyzer:
         return result
     
     def analyze_directory(self, directory: str, force_reanalyze: bool = False, max_files: Optional[int] = None, max_workers: int = 4, pattern: Optional[str] = None):
-        """Analyzes all media files (videos and images) in directory"""
+        """Analyzes all media files (videos, images, and audio) in directory"""
         if not os.path.exists(directory):
             print(f"{Fore.RED}Directory does not exist: {directory}{Style.RESET_ALL}")
             return
@@ -464,6 +512,9 @@ class MediaAnalyzer:
         cursor.execute('SELECT COUNT(*) FROM media_files WHERE media_type = "image"')
         image_files = cursor.fetchone()[0]
         
+        cursor.execute('SELECT COUNT(*) FROM media_files WHERE media_type = "audio"')
+        audio_files = cursor.fetchone()[0]
+        
         cursor.execute('SELECT COUNT(*) FROM media_files WHERE is_corrupted = 1')
         corrupted_files = cursor.fetchone()[0]
         
@@ -501,6 +552,7 @@ class MediaAnalyzer:
             'total_files': total_files,
             'video_files': video_files,
             'image_files': image_files,
+            'audio_files': audio_files,
             'corrupted_files': corrupted_files,
             'valid_files': total_files - corrupted_files,
             'total_size_gb': total_size / (1024**3),
@@ -512,11 +564,11 @@ class MediaAnalyzer:
 def main():
     """Main program function"""
     parser = argparse.ArgumentParser(
-        description='Media file analysis (videos and images) using ffprobe and PIL, saving to SQLite'
+        description='Media file analysis (videos, images, and audio) using ffprobe and PIL, saving to SQLite'
     )
     parser.add_argument(
         'directory',
-        help='Directory for recursive media file search (videos and images)'
+        help='Directory for recursive media file search (videos, images, and audio)'
     )
     parser.add_argument(
         '--database', '-d',
@@ -568,10 +620,11 @@ def main():
         print(f"Total files: {stats['total_files']}")
         print(f"  Videos: {stats['video_files']}")
         print(f"  Images: {stats['image_files']}")
+        print(f"  Audio: {stats['audio_files']}")
         print(f"Valid files: {stats['valid_files']}")
         print(f"Corrupted files: {stats['corrupted_files']}")
         print(f"Total size: {stats['total_size_gb']:.2f} GB")
-        print(f"Video duration: {stats['total_duration_hours']:.2f} hours")
+        print(f"Video/Audio duration: {stats['total_duration_hours']:.2f} hours")
         
         if stats['top_codecs']:
             print(f"\n{Fore.YELLOW}🎥 Top video codecs:{Style.RESET_ALL}")

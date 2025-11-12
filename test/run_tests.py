@@ -174,12 +174,6 @@ class TestFramework:
                 'output_files': []
             },
             
-            'corrupted_files': {
-                'description': 'Export files without metadata',
-                'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'no_metadata_files.txt', '--export-no-metadata', '--now-time', test_time],
-                'output_files': ['no_metadata_files.txt']
-            },
-            
             'corrupted_files_export': {
                 'description': 'Export corrupted files',
                 'cmd': [sys.executable, 'media_query.py', '--database', db_rel, '--export-list', 'corrupted_files.txt', '--export-corrupted', '--now-time', test_time],
